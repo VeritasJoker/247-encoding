@@ -309,14 +309,13 @@ def run_save_permutation(args, prod_X, prod_Y, filename):
                             prod_X=prod_X,
                             prod_Y=prod_Y), range(args.npermutations))
         else:
-            perm_prod = []
-            for i in range(args.npermutations):
-                perm_prod.append(cv_lm_coef(prod_X, prod_Y, 10))
+            perm_prod = cv_lm_coef(prod_X, prod_Y, 10) # return model
     
         print('writing coefs')
-        with open(filename, 'w') as csvfile:
-            csvwriter = csv.writer(csvfile)
-            csvwriter.writerows(perm_prod)
+        np.savetxt(filename, perm_prod, delimiter=",")
+        # with open(filename, 'w') as csvfile:
+        #     csvwriter = csv.writer(csvfile)
+        #     csvwriter.writerows(perm_prod)
 
 
 def load_header(conversation_dir, subject_id):

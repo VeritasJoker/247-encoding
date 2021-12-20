@@ -21,7 +21,7 @@ SIG_FN :=
 # SIG_FN := --sig-elec-file 129-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH.csv
 # SIG_FN := --sig-elec-file colton625.csv colton625.csv
 # SIG_FN := --sig-elec-file 676-50-mariano-prod.csv 676-65-mariano-comp.csv
-# SIG_FN := --sig-elec-file 625-61-mariano-prod.csv 625-58-mariano-comp.csv
+SIG_FN := --sig-elec-file 625-61-mariano-prod.csv 625-58-mariano-comp.csv
 
 # 676 Electrode IDs
 # SID := 676
@@ -84,7 +84,7 @@ ALIGN_WITH := blenderbot-small
 
 # Choose layer
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
-LAYER_IDX := 8
+LAYER_IDX := 16
 
 # Choose whether to PCA
 PCA_TO := 50
@@ -106,8 +106,8 @@ WV := all
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
 CMD := echo
-CMD := sbatch submit1.sh
 CMD := python
+CMD := sbatch submit1.sh
 # {echo | python | sbatch submit1.sh}
 
 # datum
@@ -170,7 +170,7 @@ run-encoding:
 		$(SH) \
 		$(PSH) \
 		--normalize $(NM)\
-		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-en \
+		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-de \
 		--output-prefix $(USR)-$(WS)ms-$(WV);\
 
 # Recommended naming convention for output_folder
@@ -316,5 +316,18 @@ plot-new:
 		--keys prod comp \
 		$(SIG_FN) \
 		--outfile results/figures/tfs-625-blenderbot-de-best-lag.pdf
+	rsync -av results/figures/ ~/tigress/247-encoding-results/
+
+
+plot-model:
+	python code/plot_model.py \
+		--formats \
+			'results/tfs/kw-tfs-full-625-blenderbot-small-en/kw-200ms-all-625/*_%s.csv' \
+			'results/tfs/kw-tfs-full-625-blenderbot-small-en-model-mat/kw-200ms-all-625/*_%s.csv' \
+		--labels decoder model\
+		--values $(LAGS) \
+		--keys prod comp \
+		$(SIG_FN) \
+		--outfile results/figures/tfs-625-blenderbot-en-model.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
