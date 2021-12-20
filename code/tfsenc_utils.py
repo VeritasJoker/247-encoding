@@ -39,6 +39,44 @@ def encColCorr(CA, CB):
 
     return r, p, t
 
+def cv_lm_coef(X, Y, kfolds):
+    skf = KFold(n_splits=kfolds, shuffle=False)
+    Y = np.mean(Y, axis=-1)
+    # Data size
+    nSamps = X.shape[0]
+
+    # Extract only test folds
+    folds = [t[1] for t in skf.split(np.arange(nSamps))]
+
+    # Go through each fold, and split
+    for i in range(kfolds):
+        # Shift the number of folds for this iteration
+        # [0 1 2 3 4] -> [1 2 3 4 0] -> [2 3 4 0 1]
+        #                       ^ dev fold
+        #                         ^ test fold
+        #                 | - | <- train folds
+        folds_ixs = np.roll(range(kfolds), i)
+        train_folds = folds_ixs[:-1]
+        # print(f'\nFold {i}. Training on {train_folds}, '
+        #       f'test on {test_fold}.')
+        # print(test_index)
+        train_index = np.concatenate([folds[j] for j in train_folds])
+
+        # Extract each set out of the big matricies
+        Xtra = X[train_index]
+        Ytra = Y[train_index]
+
+        # Mean-center
+        Xtra -= np.mean(Xtra, axis=0)
+        Ytra -= np.mean(Ytra, axis=0)
+
+        # Fit model
+        B = np.linalg.pinv(Xtra) @ Ytra
+
+        return B
+
+
+
 
 def cv_lm_003(X, Y, kfolds):
     """Cross-validated predictions from a regression model using sequential
@@ -221,6 +259,37 @@ def run_save_permutation_pr(args, prod_X, prod_Y, filename):
 
     return perm_rc
 
+# def run_permutation(args, prod_X, prod_Y, filename):
+#     """[summary]
+
+#     Args:
+#         args ([type]): [description]
+#         prod_X ([type]): [description]
+#         prod_Y ([type]): [description]
+#         filename ([type]): [description]
+#     """
+#     if prod_X.shape[0]:
+#         if args.parallel:
+#             print(f'Running {args.npermutations} in parallel')
+#             with Pool(16) as pool:
+#                 perm_prod = pool.map(
+#                     partial(encoding_mp,
+#                             args=args,
+#                             prod_X=prod_X,
+#                             prod_Y=prod_Y), range(args.npermutations))
+#         else:
+#             perm_prod = []
+#             for i in range(args.npermutations):
+#                 perm_prod.append(encoding_mp(i, args, prod_X, prod_Y))
+#                 # print(max(perm_prod[-1]), np.mean(perm_prod[-1]))
+        
+#         if args.model_mod: # do best-lag models
+#             if 'comp' in filename:
+#                 args.best_lag[0] = np.argmax(np.array(perm_prod))
+#             if 'prod' in filename:
+#                 args.best_lag[1] = np.argmax(np.array(perm_prod))
+
+
 def run_save_permutation(args, prod_X, prod_Y, filename):
     """[summary]
 
@@ -235,16 +304,16 @@ def run_save_permutation(args, prod_X, prod_Y, filename):
             print(f'Running {args.npermutations} in parallel')
             with Pool(16) as pool:
                 perm_prod = pool.map(
-                    partial(encoding_mp,
+                    partial(encoding_mp, # not done
                             args=args,
                             prod_X=prod_X,
                             prod_Y=prod_Y), range(args.npermutations))
         else:
             perm_prod = []
             for i in range(args.npermutations):
-                perm_prod.append(encoding_mp(i, args, prod_X, prod_Y))
-                # print(max(perm_prod[-1]), np.mean(perm_prod[-1]))
-
+                perm_prod.append(cv_lm_coef(prod_X, prod_Y, 10))
+    
+        print('writing coefs')
         with open(filename, 'w') as csvfile:
             csvwriter = csv.writer(csvfile)
             csvwriter.writerows(perm_prod)
@@ -279,8 +348,12 @@ def create_output_directory(args):
 
     folder_name = '-'.join([args.output_prefix, str(args.sid)])
     folder_name = folder_name.strip('-')
+    if args.model_mod:
+        parent_folder_name = '-'.join([args.output_parent_dir, args.model_mod])
+    else:
+        parent_folder_name = args.output_parent_dir
     full_output_dir = os.path.join(os.getcwd(), 'results', args.project_id,
-                                   args.output_parent_dir, folder_name)
+                                parent_folder_name, folder_name)
 
     os.makedirs(full_output_dir, exist_ok=True)
 
@@ -329,14 +402,15 @@ def encoding_regression(args, datum, elec_signal, name):
 
     print(f'{args.sid} {name} Prod: {len(prod_X)} Comp: {len(comp_X)}')
     
-    # Run permutation and save results
-    trial_str = append_jobid_to_string(args, 'prod')
-    filename = os.path.join(output_dir, name + trial_str + '.csv')
-    run_save_permutation(args, prod_X, prod_Y, filename)
-    
+    # Run permutation and save results    
     trial_str = append_jobid_to_string(args, 'comp')
     filename = os.path.join(output_dir, name + trial_str + '.csv')
     run_save_permutation(args, comp_X, comp_Y, filename)
+    
+
+    trial_str = append_jobid_to_string(args, 'prod')
+    filename = os.path.join(output_dir, name + trial_str + '.csv')
+    run_save_permutation(args, prod_X, prod_Y, filename)
 
     return
 
@@ -368,6 +442,8 @@ def setup_environ(args):
 
     args.output_dir = os.path.join(os.getcwd(), 'results')
     args.full_output_dir = create_output_directory(args)
+
+    args.best_lag = [-1,-1]
 
     vars(args).update(path_dict)
     return args

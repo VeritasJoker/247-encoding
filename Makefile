@@ -68,8 +68,8 @@ CONVERSATION_IDX := 0
 # {glove50 | gpt2-xl | blenderbot-small}
 EMB := blenderbot
 EMB := glove50
-EMB := blenderbot-small
 EMB := gpt2-xl
+EMB := blenderbot-small
 CNXT_LEN := 1024
 
 # Choose the window size to average for each point
@@ -79,12 +79,12 @@ WS := 200
 # Choose which set of embeddings to align with
 ALIGN_WITH := gpt2-xl blenderbot-small
 ALIGN_WITH := glove50
-ALIGN_WITH := blenderbot-small
 ALIGN_WITH := gpt2-xl
+ALIGN_WITH := blenderbot-small
 
 # Choose layer
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
-LAYER_IDX := 48
+LAYER_IDX := 8
 
 # Choose whether to PCA
 PCA_TO := 50
@@ -125,8 +125,7 @@ MM := best-lag
 MM := prod-comp-cv
 MM := prod-comp-best-lag
 MM := prod-comp
-MM := best-lag-co
-MM := 
+MM := best-lag-mat
 
 
 #TODO: move paths to makefile
@@ -171,7 +170,7 @@ run-encoding:
 		$(SH) \
 		$(PSH) \
 		--normalize $(NM)\
-		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB) \
+		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-en \
 		--output-prefix $(USR)-$(WS)ms-$(WV);\
 
 # Recommended naming convention for output_folder
