@@ -12,9 +12,12 @@ from matplotlib.backends.backend_pdf import PdfPages
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from multiprocessing import Pool
 
+from tfsplt_utils import read_sig_file, read_folder
+from utils import main_timer
+
 
 # -----------------------------------------------------------------------------
-# Argument Parser
+# Argument Parser Functions
 # -----------------------------------------------------------------------------
 
 def arg_parser(): # argument parser
@@ -39,24 +42,85 @@ def arg_parser(): # argument parser
     return args
 
 
+def set_up_environ(args):
+
+    args.x_vals_show = [x_val / 1000 for x_val in args.x_vals_show]
+    args.lags_show = [lag / 1000 for lag in args.lags_show]
+    args.unique_labels = list(dict.fromkeys(args.labels))
+    args.unique_keys = list(dict.fromkeys(args.keys))
+
+    args = get_cmap_smap(args) # get color and style map
+
+    return args
+
+
 def arg_assert(args): # some sanity checks
     assert len(args.fig_size) == 2
     assert len(args.formats) == len(args.labels), 'Need same number of labels as formats'
     assert len(args.lags_show) == len(args.x_vals_show), 'Need same number of lags values and x values'
     assert all(lag in args.lags_plot for lag in args.lags_show), 'Lags plot should contain all lags from lags show'
-    assert all(lag in x_vals_show for lag in args.lag_ticks), 'X values show should contain all values from lags ticks'
-    assert all(lag in lags_show for lag in args.lag_tick_labels), 'Lags show should contain all values from lag tick labels'
+    assert all(lag in args.x_vals_show for lag in args.lag_ticks), 'X values show should contain all values from lags ticks'
+    assert all(lag in args.lags_show for lag in args.lag_tick_labels), 'Lags show should contain all values from lag tick labels'
     assert len(args.lag_ticks) == len(args.lag_tick_labels), 'Need same number of lag ticks and lag tick labels'
     
     if args.split:
         assert args.split_by, 'Need split by criteria'
         assert args.split == 'horizontal' or args.split == 'vertical'
         assert args.split_by == 'keys' or args.split_by == 'labels'
+    
+    return args
 
-args = arg_parser()
-x_vals_show = [x_val / 1000 for x_val in args.x_vals_show]
-lags_show = [lag / 1000 for lag in args.lags_show]
-arg_assert(args)
+
+# -----------------------------------------------------------------------------
+# Utils Functions
+# -----------------------------------------------------------------------------
+
+def get_sigelecs(args):
+    """Get significant electrodes
+
+    Args:
+        args (namespace): commandline arguments
+
+    Returns:
+        sigelecs (Dict): mode (key): list of sig elecs (value)
+    """
+    sigelecs = {}
+    if len(args.sig_elec_file) == 0:
+        pass
+    elif len(args.sig_elec_file) == len(args.sid) * len(args.keys):
+        sid_key_tup = [x for x in itertools.product(args.sid, args.keys)]
+        for fname, sid_key in zip(args.sig_elec_file, sid_key_tup):
+            sigelecs[sid_key] = read_sig_file(fname)
+    else:
+        raise Exception('Need a significant electrode file for each subject-key combo')
+    return sigelecs
+
+
+def add_sid(df, elec_name_dict):
+    elec_name = df.index.to_series().str.get(1).tolist()
+    sid_name = df.index.to_series().str.get(3).tolist()
+    for idx, string in enumerate(elec_name):
+        if string.find('_') < 0 or not string[0:3].isdigit(): # no sid in front
+            new_string = str(sid_name[idx]) + '_' + string # add sid
+            elec_name_dict[string] = new_string
+    return elec_name_dict
+
+
+def sep_sid_elec(string):
+    """Separate string into subject id and electrode name
+
+    Args:
+        string: string in the format
+
+    Returns:
+        tuple in the format (subject id, electrode name)
+    """
+    sid_index = string.find('_')
+    if sid_index > 1: # if string contains '_'
+        if string[:sid_index].isdigit(): # if electrode name starts with sid
+            sid_name = string[:sid_index]
+            elec_name = string[(sid_index + 1):] # remove the sid
+    return (sid_name, elec_name)
 
 
 # -----------------------------------------------------------------------------
@@ -108,147 +172,80 @@ def get_cmap_smap(args):
     smap = {}  # line style map
 
     if args.lc_by == 'labels' and args.ls_by == 'keys': # line color by labels and line style by keys
-        for label, color in zip(unique_labels, colors):
-            for key, style in zip(unique_keys, styles):
+        for label, color in zip(args.unique_labels, colors):
+            for key, style in zip(args.unique_keys, styles):
                 cmap[(label, key)] = color
                 smap[(label, key)] = style
     elif args.lc_by == 'keys' and args.ls_by == 'labels': # line color by keys and line style by labels
-        for key, color in zip(unique_keys, colors):
-            for label, style in zip(unique_labels, styles):
+        for key, color in zip(args.unique_keys, colors):
+            for label, style in zip(args.unique_labels, styles):
                 cmap[(label, key)] = color
                 smap[(label, key)] = style
     elif args.lc_by == args.ls_by == 'labels': # both line color and style by labels
-        for label, color, style in zip(unique_labels, colors, styles):
-            for key in unique_keys:
+        for label, color, style in zip(args.unique_labels, colors, styles):
+            for key in args.unique_keys:
                 cmap[(label, key)] = color
                 smap[(label, key)] = style
     elif args.lc_by == args.ls_by == 'keys': # both line color and style by keys
-        for key, color, style in zip(unique_keys, colors, styles):
-            for label in unique_labels:
+        for key, color, style in zip(args.unique_keys, colors, styles):
+            for label in args.unique_labels:
                 cmap[(label, key)] = color
                 smap[(label, key)] = style
     else:
         raise Exception('Invalid input for arguments lc_by or ls_by') 
-    return (cmap, smap)
 
-
-unique_labels = list(dict.fromkeys(args.labels))
-unique_keys = list(dict.fromkeys(args.keys))
-cmap, smap = get_cmap_smap(args)
-
-
-# -----------------------------------------------------------------------------
-# Read Significant Electrode Files
-# -----------------------------------------------------------------------------
-
-sigelecs = {}
-multiple_sid = False # only 1 subject
-if len(args.sid) > 1:
-    multiple_sid = True # multiple subjects
-if len(args.sig_elec_file) == 0:
-    pass
-elif len(args.sig_elec_file) == len(args.sid) * len(args.keys):
-    sid_key_tup = [x for x in itertools.product(args.sid, args.keys)]
-    for fname, sid_key in zip(args.sig_elec_file, sid_key_tup):
-        sig_file = pd.read_csv('data/' + fname)
-        if sig_file.subject.nunique() == 1:
-            # elecs = sig_file['electrode'].tolist()
-            # sigelecs[sid_key] = set(elecs) # need to use this for old 625-676 results
-            sig_file['sid_electrode'] = sig_file['subject'].astype(str) + '_' + sig_file['electrode']
-            elecs = sig_file['sid_electrode'].tolist()
-            sigelecs[sid_key] = set(elecs)
-        else:
-            sig_file['sid_electrode'] = sig_file['subject'].astype(str) + '_' + sig_file['electrode']
-            elecs = sig_file['sid_electrode'].tolist()
-            sigelecs[sid_key] = set(elecs)
-            multiple_sid = True
-else:
-    raise Exception('Need a significant electrode file for each subject-key combo')
+    args.cmap = cmap
+    args.smap = smap
+    return args
 
 
 # -----------------------------------------------------------------------------
-# Aggregate Data
+# Aggregate Data Functions
 # -----------------------------------------------------------------------------
 
-print('Aggregating data')
-data = []
-
-for fmt, label in zip(args.formats, args.labels):
-    load_sid = 0
-    for sid in args.sid:
-        if str(sid) in fmt:
-            load_sid = sid
-    assert load_sid != 0, f"Need subject id for format {fmt}" # check subject id for format is provided
-    for key in args.keys:
-        fname = fmt % key
-        files = glob.glob(fname)
-        assert len(files) > 0, f"No results found under {fname}" # check files exist under format
-
-        for resultfn in files:
-            elec = os.path.basename(resultfn).replace('.csv', '')[:-5]
-            # Skip electrodes if they're not part of the sig list
-            # if 'LGA' not in elec and 'LGB' not in elec: # for 717, only grid
-            #     continue
-            if len(sigelecs) and elec not in sigelecs[(load_sid,key)]:
-                continue
-            df = pd.read_csv(resultfn, header=None)
-            df.insert(0, 'sid', load_sid)
-            df.insert(0, 'mode', key)
-            df.insert(0, 'electrode', elec)
-            df.insert(0, 'label', label)
-            data.append(df)
-
-if not len(data):
-    print('No data found')
-    exit(1)
-df = pd.concat(data)
-df.set_index(['label', 'electrode', 'mode','sid'], inplace=True)
-
-n_lags, n_df = len(args.lags_plot), len(df.columns)
-assert n_lags == n_df, 'args.lags_plot length ({n_av}) must be the same size as results ({n_df})'
-
-def add_sid(df, elec_name_dict):
-    elec_name = df.index.to_series().str.get(1).tolist()
-    sid_name = df.index.to_series().str.get(3).tolist()
-    for idx, string in enumerate(elec_name):
-        if string.find('_') < 0 or not string[0:3].isdigit(): # no sid in front
-            new_string = str(sid_name[idx]) + '_' + string # add sid
-            elec_name_dict[string] = new_string
-    return elec_name_dict
+def aggregate_data(args, sigelecs, parallel=True):
+    data = []
+    print('Aggregating data')
+    for fmt, label in zip(args.formats, args.labels):
+        load_sid = 0
+        for sid in args.sid:
+            if str(sid) in fmt:
+                load_sid = sid
+        assert load_sid != 0, f"Need subject id for format {fmt}" # check subject id for format is provided
+        for key in args.keys:
+            fname = fmt % key
+            data = read_folder(data,fname,sigelecs,(load_sid,key),load_sid,key,label,parallel)
+    if not len(data):
+        print('No data found')
+        exit(1)
+    df = pd.concat(data)
+    return df
 
 
-elec_name_dict = {}
-# new_sid = df.index.to_series().str.get(1).apply(add_sid) # add sid if no sid in front
-elec_name_dict = add_sid(df, elec_name_dict)
-df = df.rename(index=elec_name_dict) # rename electrodes to add sid in front
+def organize_data(args, df):
 
-if len(args.lags_show) < len(args.lags_plot): # if we want to plot part of the lags and not all lags
-    print('Trimming Data')
-    chosen_lag_idx = [idx for idx, element in enumerate(args.lags_plot) if element in args.lags_show]
-    df = df.loc[:,chosen_lag_idx] # chose from lags to show for the plot
-    assert len(x_vals_show) == len(df.columns), 'args.lags_show length must be the same size as trimmed df column number'
+    df.set_index(['label', 'electrode', 'mode','sid'], inplace=True)
+
+    n_lags, n_df = len(args.lags_plot), len(df.columns)
+    assert n_lags == n_df, 'args.lags_plot length ({n_av}) must be the same size as results ({n_df})'
+    
+    elec_name_dict = {}
+    # new_sid = df.index.to_series().str.get(1).apply(add_sid) # add sid if no sid in front
+    elec_name_dict = add_sid(df, elec_name_dict)
+    df = df.rename(index=elec_name_dict) # rename electrodes to add sid in front
+
+    if len(args.lags_show) < len(args.lags_plot): # if we want to plot part of the lags and not all lags
+        print('Trimming Data')
+        chosen_lag_idx = [idx for idx, element in enumerate(args.lags_plot) if element in args.lags_show]
+        df = df.loc[:,chosen_lag_idx] # chose from lags to show for the plot
+        assert len(args.x_vals_show) == len(df.columns), 'args.lags_show length must be the same size as trimmed df column number'
+
+    return df
 
 
 # -----------------------------------------------------------------------------
 # Plotting Average and Individual Electrodes
 # -----------------------------------------------------------------------------
-
-def sep_sid_elec(string):
-    """Separate string into subject id and electrode name
-
-    Args:
-        string: string in the format
-
-    Returns:
-        tuple in the format (subject id, electrode name)
-    """
-    sid_index = string.find('_')
-    if sid_index > 1: # if string contains '_'
-        if string[:sid_index].isdigit(): # if electrode name starts with sid
-            sid_name = string[:sid_index]
-            elec_name = string[(sid_index + 1):] # remove the sid
-    return (sid_name, elec_name)
-
 
 def get_elecbrain(electrode):
     """Get filepath for small brain plots
@@ -269,18 +266,18 @@ def get_elecbrain(electrode):
     return imname
 
 
-def plot_average(pdf):
+def plot_average(args, df, pdf):
     print('Plotting Average')
-    fig, ax = plt.subplots(figsize=fig_size)
-    axins = inset_axes(ax,width=3,height=1.5,loc=2,borderpad=4)
+    fig, ax = plt.subplots(figsize=(args.fig_size[0],args.fig_size[1]))
+    # axins = inset_axes(ax,width=3,height=1.5,loc=2,borderpad=4)
     for mode, subdf in df.groupby(['label', 'mode'], axis=0):
         vals = subdf.mean(axis=0)
         err = subdf.sem(axis=0)
         label = '-'.join(mode)
-        ax.fill_between(x_vals_show, vals - err, vals + err, alpha=0.2, color=cmap[mode])
-        ax.plot(x_vals_show, vals, label=f'{label} ({len(subdf)})', color=cmap[mode], ls=smap[mode])
-        layer_num = int(mode[0].replace('layer',''))
-        axins.scatter(layer_num, max(vals), color=cmap[mode])
+        ax.fill_between(args.x_vals_show, vals - err, vals + err, alpha=0.2, color=args.cmap[mode])
+        ax.plot(args.x_vals_show, vals, label=f'{label} ({len(subdf)})', color=args.cmap[mode], ls=args.smap[mode])
+        # layer_num = int(mode[0].replace('layer',''))
+        # axins.scatter(layer_num, max(vals), color=args.cmap[mode])
         if len(args.lag_ticks) != 0:
             ax.set_xticks(args.lag_ticks)
             ax.set_xticklabels(args.lag_tick_labels)
@@ -293,20 +290,20 @@ def plot_average(pdf):
     return pdf
 
 
-def plot_average_split_by_key(pdf, split_dir):
-    if split_dir == 'horizontal':
+def plot_average_split_by_key(args, df, pdf):
+    if args.split == 'horizontal':
         print('Plotting Average split horizontally by keys')
-        fig, axes = plt.subplots(1, len(unique_keys), figsize=fig_size)
+        fig, axes = plt.subplots(1, len(args.unique_keys), figsize=(args.fig_size[0],args.fig_size[1]))
     else:
         print('Plotting Average split vertically by keys')
-        fig, axes = plt.subplots(len(unique_keys), 1, figsize=fig_size)
+        fig, axes = plt.subplots(len(args.unique_keys), 1, figsize=(args.fig_size[0],args.fig_size[1]))
     for ax, (mode, subdf) in zip(axes, df.groupby('mode', axis=0)):
         for label, subsubdf in subdf.groupby('label', axis=0):
             vals = subsubdf.mean(axis=0)
             err = subsubdf.sem(axis=0)
             key = (label, mode)
-            ax.fill_between(x_vals_show, vals - err, vals + err, alpha=0.2, color=cmap[key])
-            ax.plot(x_vals_show, vals, label=f'{label} ({len(subsubdf)})', color=cmap[key], ls=smap[key])
+            ax.fill_between(args.x_vals_show, vals - err, vals + err, alpha=0.2, color=args.cmap[key])
+            ax.plot(args.x_vals_show, vals, label=f'{label} ({len(subsubdf)})', color=args.cmap[key], ls=args.smap[key])
             if len(args.lag_ticks) != 0:
                 ax.set_xticks(args.lag_ticks)
                 ax.set_xticklabels(args.lag_tick_labels)
@@ -320,20 +317,20 @@ def plot_average_split_by_key(pdf, split_dir):
     return pdf
 
 
-def plot_average_split_by_label(pdf, split_dir):
-    if split_dir == 'horizontal':
+def plot_average_split_by_label(args, df, pdf):
+    if args.split == 'horizontal':
         print('Plotting Average split horizontally by labels')
-        fig, axes = plt.subplots(1, len(unique_labels), figsize=fig_size)
+        fig, axes = plt.subplots(1, len(args.unique_labels), figsize=(args.fig_size[0],args.fig_size[1]))
     else:
         print('Plotting Average split vertically by labels')
-        fig, axes = plt.subplots(len(unique_labels), 1, figsize=fig_size)
+        fig, axes = plt.subplots(len(args.unique_labels), 1, figsize=(args.fig_size[0],args.fig_size[1]))
     for ax, (label, subdf) in zip(axes, df.groupby('label', axis=0)):
         for mode, subsubdf in subdf.groupby('mode', axis=0):
             vals = subsubdf.mean(axis=0)
             err = subsubdf.sem(axis=0)
             key = (label, mode)
-            ax.fill_between(x_vals_show, vals - err, vals + err, alpha=0.2, color=cmap[key])
-            ax.plot(x_vals_show, vals, label=f'{mode} ({len(subsubdf)})', color=cmap[key], ls=smap[key])
+            ax.fill_between(args.x_vals_show, vals - err, vals + err, alpha=0.2, color=args.cmap[key])
+            ax.plot(args.x_vals_show, vals, label=f'{mode} ({len(subsubdf)})', color=args.cmap[key], ls=args.smap[key])
         if len(args.lag_ticks) != 0:
             ax.set_xticks(args.lag_ticks)
             ax.set_xticklabels(args.lag_tick_labels)
@@ -347,17 +344,17 @@ def plot_average_split_by_label(pdf, split_dir):
     return pdf
 
 
-def plot_electrodes(pdf):
+def plot_electrodes(args, df, pdf, vmin, vmax):
     print('Plotting Individual Electrodes')
     for (electrode, sid), subdf in df.groupby(['electrode', 'sid'], axis=0):
-        fig, ax = plt.subplots(figsize=fig_size)
-        axins = inset_axes(ax,width=3,height=1.5,borderpad=4)
+        fig, ax = plt.subplots(figsize=(args.fig_size[0],args.fig_size[1]))
+        # axins = inset_axes(ax,width=3,height=1.5,borderpad=4)
         for (label, _, mode, _), values in subdf.iterrows():
             mode = (label, mode)
             label = '-'.join(mode)
-            ax.plot(x_vals_show, values, label=label, color=cmap[mode], ls=smap[mode])
-            layer_num = int(mode[0].replace('layer',''))
-            axins.scatter(layer_num, max(values), color=cmap[mode])
+            ax.plot(args.x_vals_show, values, label=label, color=args.cmap[mode], ls=args.smap[mode])
+            # layer_num = int(mode[0].replace('layer',''))
+            # axins.scatter(layer_num, max(values), color=args.cmap[mode])
         if len(args.lag_ticks) != 0:
             ax.set_xticks(args.lag_ticks)
             ax.set_xticklabels(args.lag_tick_labels)
@@ -377,18 +374,18 @@ def plot_electrodes(pdf):
     return pdf
 
 
-def plot_electrodes_split_by_key(pdf, split_dir):
+def plot_electrodes_split_by_key(args, df, pdf, vmin, vmax):
     print('Plotting Individual Electrodes split by keys')
     for (electrode, sid), subdf in df.groupby(['electrode','sid'], axis=0):
-        if split_dir == 'horizontal':
-            fig, axes = plt.subplots(1, len(unique_keys), figsize=fig_size)
+        if args.split == 'horizontal':
+            fig, axes = plt.subplots(1, len(args.unique_keys), figsize=(args.fig_size[0],args.fig_size[1]))
         else:
-            fig, axes = plt.subplots(len(unique_keys), 1, figsize=fig_size)
+            fig, axes = plt.subplots(len(args.unique_keys), 1, figsize=(args.fig_size[0],args.fig_size[1]))
         for ax, (mode, subsubdf) in zip(axes, subdf.groupby('mode')):
             for row, values in subsubdf.iterrows():
                 label = row[0]
                 key = (label, mode)
-                ax.plot(x_vals_show, values, label=label, color=cmap[key], ls=smap[key])
+                ax.plot(args.x_vals_show, values, label=label, color=args.cmap[key], ls=args.smap[key])
             if len(args.lag_ticks) != 0:
                 ax.set_xticks(args.lag_ticks)
                 ax.set_xticklabels(args.lag_tick_labels)
@@ -408,18 +405,18 @@ def plot_electrodes_split_by_key(pdf, split_dir):
     return pdf
 
 
-def plot_electrodes_split_by_label(pdf, split_dir):
+def plot_electrodes_split_by_label(args, df, pdf, vmin, vmax):
     print('Plotting Individual Electrodes split by labels')
     for (electrode, sid), subdf in df.groupby(['electrode','sid'], axis=0):
-        if split_dir == 'horizontal':
-            fig, axes = plt.subplots(1, len(unique_labels), figsize=fig_size)
+        if args.split == 'horizontal':
+            fig, axes = plt.subplots(1, len(args.unique_labels), figsize=(args.fig_size[0],args.fig_size[1]))
         else:
-            fig, axes = plt.subplots(len(unique_labels), 1, figsize=fig_size)
+            fig, axes = plt.subplots(len(args.unique_labels), 1, figsize=(args.fig_size[0],args.fig_size[1]))
         for ax, (label, subsubdf) in zip(axes, subdf.groupby('label')):
             for row, values in subsubdf.iterrows():
                 mode = row[2]
                 key = (label, mode)
-                ax.plot(x_vals_show, values, label=mode, color=cmap[key], ls=smap[key])
+                ax.plot(args.x_vals_show, values, label=mode, color=args.cmap[key], ls=args.smap[key])
             if len(args.lag_ticks) != 0:
                 ax.set_xticks(args.lag_ticks)
                 ax.set_xticklabels(args.lag_tick_labels)
@@ -439,18 +436,34 @@ def plot_electrodes_split_by_label(pdf, split_dir):
     return pdf
 
 
-pdf = PdfPages(args.outfile)
-fig_size = (args.fig_size[0],args.fig_size[1])
-vmax, vmin = df.max().max(), df.min().min()
-if args.split:
-    if args.split_by == 'keys':
-        pdf = plot_average_split_by_key(pdf, args.split)
-        pdf = plot_electrodes_split_by_key(pdf, args.split)
-    elif args.split_by == 'labels':
-        pdf = plot_average_split_by_label(pdf, args.split)
-        pdf = plot_electrodes_split_by_label(pdf, args.split)
-else:
-    pdf = plot_average(pdf)
-    pdf = plot_electrodes(pdf)
+@main_timer
+def main():
 
-pdf.close()
+    args = arg_parser()
+    arg_assert(args) # some sanity checks
+    args = set_up_environ(args) # additional indirect args
+
+    sigelecs = get_sigelecs(args)
+    df = aggregate_data(args, sigelecs)
+    df = organize_data(args, df)
+
+    pdf = PdfPages(args.outfile)
+    vmax, vmin = df.max().max(), df.min().min()
+    if args.split:
+        if args.split_by == 'keys':
+            pdf = plot_average_split_by_key(args, df, pdf)
+            pdf = plot_electrodes_split_by_key(args, df, pdf, vmin, vmax)
+        elif args.split_by == 'labels':
+            pdf = plot_average_split_by_label(args, df, pdf)
+            pdf = plot_electrodes_split_by_label(args, df, pdf, vmin, vmax)
+    else:
+        pdf = plot_average(args, df, pdf)
+        pdf = plot_electrodes(args, df, pdf, vmin, vmax)
+    
+    pdf.close()
+
+    return None
+
+
+if __name__ == "__main__":
+    main()

@@ -1,6 +1,7 @@
 import glob
 import os
 import argparse
+from threading import Condition
 import pandas as pd
 import numpy as np
 from multiprocessing import Pool
@@ -12,33 +13,95 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from tfsplt_utils import read_sig_file, read_data
+from tfsplt_utils import read_sig_file, read_folder
 from tfsenc_parser import parse_arguments
 from utils import main_timer
 
 
+# -----------------------------------------------------------------------------
+# Utils functions
+# -----------------------------------------------------------------------------
+
 def get_child_folders(args):
+    """Get child folders given parent folder and conditions
+
+    Args:
+        args (namespace): commandline arguments
+
+    Returns:
+        folders (Dict): condition (key): list of child folder paths (value)
+    """  
     folders = {}
     for condition in args.conditions:
         format = glob.glob(args.top_dir + f'/*-{condition}-*') # all children with the formats
         if condition == 'all':
             format = [ind_format for ind_format in format if 'flip' not in ind_format] # blenderbot
-        # format = [ind_format for ind_format in format if '-1' in ind_format] # for testing
+        if args.is_test:
+            format = [ind_format for ind_format in format if '47' in ind_format or '48' in ind_format] # for testing
         folders[condition] = format
     return folders
 
 
 def get_sigelecs(args):
+    """Get significant electrodes
+
+    Args:
+        args (namespace): commandline arguments
+
+    Returns:
+        sigelecs (Dict): mode (key): list of sig elecs (value)
+    """  
     # Sig Elecs
     sigelecs = {}
     if args.sig_elecs:
         for mode in args.modes:
             sig_file_name = f'tfs-sig-file-{str(args.sid)}-sig-1.0-{mode}.csv'
+            if args.sid == 777:
+                sig_file_name = 'podcast_160.csv'
             sigelecs[mode] = read_sig_file(sig_file_name)
     return sigelecs
 
 
+def get_layer_ctx(args, dir_path):
+    """Get the layer number and context length of a child folder
+
+    Args:
+        args (namespace): commandline arguments
+        dir_path (string): child folder path
+
+    Returns:
+        layer (int): layer number
+        ctx_len (int|None): context length
+    """  
+    # get layer number from directory path
+    layer_idx = dir_path.rfind('-')
+    layer = dir_path[(layer_idx + 1):]
+    assert layer.isdigit(), "Need layer to be an int"
+    layer = int(layer)
+
+    # get context length from directory path
+    if args.has_ctx:
+        partial_format = dir_path[:layer_idx]
+        ctx_len = partial_format[(partial_format.rfind('-') + 1):]
+        assert ctx_len.isdigit(), 'Need context length to be an int'
+        ctx_len = int(ctx_len) 
+    else:
+        ctx_len = None
+    return (layer, ctx_len)
+
+
+# -----------------------------------------------------------------------------
+# Argument Parser
+# -----------------------------------------------------------------------------
+
 def parse_arguments():
+    """Argument parser
+
+    Args:
+
+    Returns:
+        args (namespace): commandline arguments
+    """  
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--sid", type=int, required=True)
@@ -58,67 +121,87 @@ def parse_arguments():
 
 
 def set_up_environ(args):
+    """Set up some indirect arguments
 
+    Args:
+        args (namespace): commandline arguments
+
+    Returns:
+        args (namespace): commandline arguments
+    """
     args.layers = np.arange(1, args.layer_num+1)
     args.sigelecs = get_sigelecs(args)
     args.lags =  np.arange(-10000, 10001, 25)
+    args.is_test = False
 
     return args
 
 
-def get_layer_ctx(args, dir_path):
+# -----------------------------------------------------------------------------
+# Aggregate Data Functions
+# -----------------------------------------------------------------------------
 
-    # get layer number from directory path
-    layer_idx = dir_path.rfind('-')
-    layer = dir_path[(layer_idx + 1):]
-    assert layer.isdigit(), "Need layer to be an int"
-    layer = int(layer)
+def average_folder(dir_path, args, mode, condition):
+    """Aggregate and average data for a specific child folder
 
-    # get context length from directory path
-    if args.has_ctx:
-        partial_format = dir_path[:layer_idx]
-        ctx_len = partial_format[(partial_format.rfind('-') + 1):]
-        assert ctx_len.isdigit(), 'Need context length to be an int'
-        ctx_len = int(ctx_len) 
-    else:
-        ctx_len = None
-    return (layer, ctx_len)
+    Args:
+        dir_path: child folder path
+        args (namespace): commandline arguments
+        mode: comp or prod
+        condition: condition for the child folder
 
-
-def aggregate_data(dir_path, args, mode, condition):
-    
-    subdata = []
-    files = glob.glob(dir_path + f'/*/*_{mode}.csv')
-    subdata = read_data(subdata, files, args.sigelecs, mode)
-    subdata = pd.concat(subdata)
-
-    subdata_ave = subdata.describe().loc[['mean'],]
+    Returns:
+        subdata_ave (dataframe): average correlation for the child folder
+    """
     layer, ctx_len = get_layer_ctx(args, dir_path)
+    if ctx_len < 16:
+        return None
     print('cond:', condition, ' mode:', mode, ' context:', ctx_len, ' layer:', layer)
+
+    subdata = []
+    fname = dir_path + f'/*/*_{mode}.csv'
+    subdata = read_folder(subdata, fname, args.sigelecs, mode)
+    subdata = pd.concat(subdata)
+    subdata_ave = subdata.describe().loc[['mean'],]
     subdata_ave = subdata_ave.assign(layer=layer,mode=mode,condition=condition)
     if args.has_ctx:
-        subdata_ave = subdata_ave.assign(ctx_len = ctx_len)
-
+        subdata_ave = subdata_ave.assign(ctx = ctx_len)
     return subdata_ave
 
 
-def aggregate_folders_parallel(args, folders):
+def aggregate_folders_parallel(args, folders, parallel = True):
+    """Aggregate data for all folders
 
-    print('Aggregating Data')
+    Args:
+        args (namespace): commandline arguments
+        folders (Dict): dictionary of all child folders
+        parallel (Bool): if aggregate data using pool
+
+    Returns:
+        df (dataframe): dataframe of all folders (one line per folder)
+    """
     data = []
     p = Pool(10)
+
     for condition in args.conditions:
         for mode in args.modes:
-            for result in p.map(partial(aggregate_data, 
-                    args=args,
-                    mode=mode, 
-                    condition=condition,
-                ), folders[condition]):
-                data.append(result)
+            if parallel:
+                print('Aggregating Data Parallel')
+                for result in p.map(partial(average_folder, 
+                        args=args,
+                        mode=mode, 
+                        condition=condition,
+                    ), folders[condition]):
+                    data.append(result)
+            else:
+                print('Aggregating Data')
+                for child_folder in folders[condition]:
+                    data.append(average_folder(child_folder,args,mode,condition))
 
     print('Organizing Data')
     df = pd.concat(data)
-    assert len(df) == args.layer_num * len(args.conditions) * len(args.modes)
+    # if not args.is_test:
+    #     assert len(df) == args.layer_num * len(args.conditions) * len(args.modes)
     if args.has_ctx:
         df = df.sort_values(by=['condition','mode','ctx','layer'])
         df.set_index(['condition','mode','ctx','layer'], inplace = True)
@@ -128,6 +211,10 @@ def aggregate_folders_parallel(args, folders):
     
     return df
 
+
+# -----------------------------------------------------------------------------
+# Plotting Functions
+# -----------------------------------------------------------------------------
 
 def ericplot1(args, df, pdf):
 
@@ -221,21 +308,47 @@ def ericplot3(args, df, pdf, type):
     return pdf
 
 
+def get_idx_val(idx, start, gap):
+    return start + idx * gap
+
+
+def heatmap(df, pdf, type):
+    # sns.dark_palette("#69d", reverse=True, as_cmap=True)
+    if type == 'max':
+        plot_mat = df.max(axis=1).unstack([0,1,2]).sort_values(by='layer',ascending=False)
+    elif type == 'idxmax':
+        plot_mat = df.idxmax(axis=1).unstack([0,1,2])
+        start_lag = -500 # -2000 or -500
+        gap_lag = 5 # 25 or 5
+        plot_mat = plot_mat.apply(get_idx_val, args=(start_lag,gap_lag))
+    fig, ax = plt.subplots(figsize=(15,6))
+    ax = sns.heatmap(plot_mat, cmap='Blues')
+    pdf.savefig(fig)
+    plt.close()
+    return pdf
+
+
 @main_timer
 def main():
 
     args = parse_arguments()
     args = set_up_environ(args)
 
+    args.is_test = True
     folders = get_child_folders(args) # get child folders
     df = aggregate_folders_parallel(args, folders) # aggregate data
 
     print('Plotting')
     pdf = PdfPages(args.outfile)
+
     pdf = ericplot1(args, df, pdf)
     pdf = ericplot2(args, df, pdf)
     pdf = ericplot3(args, df, pdf, 'mean(2s)')
     pdf = ericplot3(args, df, pdf, 'max')
+
+    # pdf = heatmap(df, pdf, 'max')
+    # pdf = heatmap(df, pdf, 'idxmax')
+
     pdf.close()
 
     return
@@ -243,49 +356,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-def heatmap(args, df, pdf, type):
-    # sns.dark_palette("#69d", reverse=True, as_cmap=True)
-    plot_max = df.max(axis=1).unstack(0).sort_values(by='layer',ascending=False)
-    plot_idxmax = df.idxmax(axis=1).unstack(0)
-    fig, ax = plt.subplots(figsize=(15,6))
-    ax = sns.heatmap(plot_max, cmap='Blues')
-    pdf.savefig(fig)
-    plt.close()
-    return pdf
-
-
-# plot_max = df.max(axis=1).unstack(0).sort_values(by='layer',ascending=False)
-# plot_idxmax = df.idxmax(axis=1).unstack(0)
-# idx_vals = list(range(-10000,10025,25))
-
-# def get_idx_val(idx):
-#     return idx_vals[idx]
-
-# plot_idxmax = plot_idxmax.apply(np.vectorize(get_idx_val))
-# sns.dark_palette("#69d", reverse=True, as_cmap=True)
-
-
-# print('Plotting')
-# pdf = PdfPages('results/figures/layer_ctx.pdf')
-
-# fig, ax = plt.subplots(figsize=(15,6))
-# ax = sns.heatmap(plot_max, cmap='Blues')
-# pdf.savefig(fig)
-# plt.close()
-
-# fig, ax = plt.subplots(figsize=(15,6))
-# ax = sns.heatmap(plot_idxmax, cmap='Blues')
-# pdf.savefig(fig)
-# plt.close()
-
-# fig, ax = plt.subplots(figsize=(15,6))
-# ax = sns.scatterplot(x=plot_max.index, y=plot_max)
-# pdf.savefig(fig)
-
-# # plot_idxmax_melt = plot_idxmax.melt('layer',var_name='mode')
-# fig, ax = plt.subplots(figsize=(15,6))
-# ax = sns.scatterplot(x=plot_idxmax.index, y=plot_idxmax)
-# pdf.savefig(fig)
-# pdf.close()

@@ -36,7 +36,7 @@ SIG_FN :=
 # SIG_FN := --sig-elec-file 625-mariano-prod-new-53.csv 625-mariano-comp-new-30.csv # for sig-test
 # SIG_FN := --sig-elec-file 676-mariano-prod-new-109.csv 676-mariano-comp-new-104.csv # for sig-test
 # SIG_FN := --sig-elec-file 7170-comp-sig.csv 7170-prod-sig.csv
-# SIG_FN := --sig-elec-file tfs-sig-file-676-sig-1.0-comp.csv tfs-sig-file-676-sig-1.0-prod.csv
+SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-comp.csv tfs-sig-file-625-sig-1.0-prod.csv tfs-sig-file-676-sig-1.0-comp.csv tfs-sig-file-676-sig-1.0-prod.csv
 
 
 # podcast electrode IDs
@@ -419,8 +419,8 @@ LAG_TK_LABLS :=
 # Split by, if any (Choose how lines are split into plots) (Only effective when Split is not empty) (optional)
 # {  | --split-by labels | --split-by keys }
 
-PLT_PARAMS := --lc-by labels --ls-by keys # plot for just one key (podcast plots)
 PLT_PARAMS := --lc-by labels --ls-by keys --split horizontal --split-by keys # plot for prod+comp (247 plots)
+PLT_PARAMS := --lc-by labels --ls-by keys # plot for just one key (podcast plots)
 
 # Figure Size (width height)
 FIG_SZ:= 15 6
@@ -437,11 +437,13 @@ The number of sig elec files should also equal # of sid * # of keys
 plot-new:
 	rm -f results/figures/*
 	python code/tfsplt_new.py \
-		--sid 717 \
+		--sid 625 676 \
 		--formats \
-			'results/tfs/bbot-layers-7170-good/kw-tfs-full-7170-blenderbot-small-lag10k-25-all-14/kw-200ms-all-7170/*_%s.csv' \
-			'results/tfs/bbot-layers-7170-good/kw-tfs-full-7170-blenderbot-small-lag10k-25-all-flip-14/kw-200ms-all-7170/*_%s.csv' \
-		--labels bbot bbot-train-on-key \
+			'results/tfs/bbot-layers-625/kw-tfs-full-625-blenderbot-small-lag10k-25-all-13/kw-200ms-all-625/*_%s.csv' \
+			'results/tfs/bbot-layers-625/kw-tfs-full-625-blenderbot-small-lag10k-25-all-14/kw-200ms-all-625/*_%s.csv' \
+			'results/tfs/bbot-layers-676/kw-tfs-full-676-blenderbot-small-lag10k-25-all-13/kw-200ms-all-676/*_%s.csv' \
+			'results/tfs/bbot-layers-676/kw-tfs-full-676-blenderbot-small-lag10k-25-all-14/kw-200ms-all-676/*_%s.csv' \
+		--labels bbot13 bbot14 bbot13 bbot14 \
 		--keys comp prod \
 		$(SIG_FN) \
 		--fig-size $(FIG_SZ) \
@@ -451,27 +453,28 @@ plot-new:
 		$(LAG_TKS) \
 		$(LAG_TK_LABLS) \
 		$(PLT_PARAMS) \
-		--outfile results/figures/tfs-7170-bbot-layer14.pdf
+		--outfile results/figures/tfs-bbot-layer14.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
-# HAS_CTX := --has-ctx
+HAS_CTX := --has-ctx
 SIG_ELECS := --sig-elecs
 
 CONDS := all correct incorrect
-CONDS := all flip
+CONDS := all correct incorrect all-flip
+CONDS := all
 
-plot_layers:
+plot-layers:
 	rm -f results/figures/*
 	python code/tfsplt_layer.py \
-		--sid 625 \
-		--layer-num 16 \
-		--top-dir results/tfs/bbot-layers-625 \
-		--modes comp prod \
+		--sid 777 \
+		--layer-num 48 \
+		--top-dir results/podcast-ctx-layer-mwf5 \
+		--modes comp \
 		--conditions $(CONDS) \
 		$(HAS_CTX) \
 		$(SIG_ELECS) \
-		--outfile results/figures/625-ericplots-bbot.pdf
+		--outfile results/figures/podcast-heatmap.pdf
 
 
 # -----------------------------------------------------------------------------
