@@ -317,6 +317,12 @@ def mod_datum(args, datum):
         new_datum_len = len(datum.index)
         print(f'Trimming resulted in {new_datum_len} ({round(new_datum_len/original_len*100,5)}%) words')
 
+    if 'shift-emb' in args.datum_mod: # shift embeddings to include word
+        datum.loc[:,'embeddings'] = datum['embeddings'].shift(-1)
+        datum = datum.loc[datum['conversation_id'].shift(-1) == datum['conversation_id'],:]
+    else:
+        pass
+
     if 'all' in args.datum_mod:
         pass
 

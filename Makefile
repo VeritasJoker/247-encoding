@@ -36,7 +36,7 @@ SIG_FN :=
 # SIG_FN := --sig-elec-file 625-mariano-prod-new-53.csv 625-mariano-comp-new-30.csv # for sig-test
 # SIG_FN := --sig-elec-file 676-mariano-prod-new-109.csv 676-mariano-comp-new-104.csv # for sig-test
 # SIG_FN := --sig-elec-file 7170-comp-sig.csv 7170-prod-sig.csv
-SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-comp.csv tfs-sig-file-625-sig-1.0-prod.csv tfs-sig-file-676-sig-1.0-comp.csv tfs-sig-file-676-sig-1.0-prod.csv
+# SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-comp.csv tfs-sig-file-625-sig-1.0-prod.csv tfs-sig-file-676-sig-1.0-comp.csv tfs-sig-file-676-sig-1.0-prod.csv
 
 
 # podcast electrode IDs
@@ -99,8 +99,8 @@ CONVERSATION_IDX := 0
 # {glove50 | gpt2-xl | blenderbot-small}
 EMB := blenderbot
 EMB := glove50
-EMB := gpt2-xl
 EMB := blenderbot-small
+EMB := gpt2-xl
 CNXT_LEN := 1024
 
 # Choose the window size to average for each point
@@ -108,13 +108,13 @@ WS := 200
 
 # Choose which set of embeddings to align with (intersection of embeddings)
 ALIGN_WITH := blenderbot-small
-ALIGN_WITH := glove50
 ALIGN_WITH := gpt2-xl
+ALIGN_WITH := glove50
 ALIGN_WITH := glove50 gpt2-xl blenderbot-small
 
 # Choose layer of embeddings to use
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
-LAYER_IDX := $(shell seq 1 16)
+LAYER_IDX := 16
 
 # Choose whether to PCA (not used in encoding for now)
 # PCA_TO := 50
@@ -122,8 +122,8 @@ LAYER_IDX := $(shell seq 1 16)
 # Specify the minimum word frequency (0 for 247, 5 for podcast)
 MWF := 0
 
-# Specify the number of folds (usually 5)
-FN := 5
+# Specify the number of folds (usually 10)
+FN := 10
 
 # TODO: explain this parameter.
 WV := all
@@ -138,8 +138,8 @@ WV := all
 
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
-CMD := python
 CMD := echo
+CMD := python
 CMD := sbatch submit1.sh
 # {echo | python | sbatch submit1.sh}
 
@@ -175,9 +175,9 @@ actually predicted by gpt2} (only used for podcast glove)
 
 # DM := no-trim
 # DM := gpt2-xl-pred
-DM := lag2k-25-incorrect
 DM := lag10k-25-all
-DM := lag2k-25-incorrect
+DM := lag10k-25-correct
+DM := lag10k-25-correct-shift-emb
 
 ############## Model Modification ##############
 # {best-lag: run encoding using the best lag (lag model with highest correlation)}
@@ -457,24 +457,26 @@ plot-new:
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
-HAS_CTX := --has-ctx
-SIG_ELECS := --sig-elecs
+# SIG_ELECS := --sig-elecs
+# DIFF_AREA := --diff-area
+# HAS_CTX := --has-ctx
 
-CONDS := all correct incorrect
 CONDS := all correct incorrect all-flip
 CONDS := all
+CONDS := all correct incorrect
 
 plot-layers:
 	rm -f results/figures/*
 	python code/tfsplt_layer.py \
-		--sid 777 \
+		--sid 7170 \
 		--layer-num 48 \
-		--top-dir results/podcast-ctx-layer-mwf5 \
-		--modes comp \
+		--top-dir results/tfs/gpt2-layers-7170-good-v2 \
+		--modes comp prod \
 		--conditions $(CONDS) \
 		$(HAS_CTX) \
 		$(SIG_ELECS) \
-		--outfile results/figures/podcast-heatmap.pdf
+		$(DIFF_AREA) \
+		--outfile results/figures/7170_eric_area.pdf
 
 
 # -----------------------------------------------------------------------------
