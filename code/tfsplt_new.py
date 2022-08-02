@@ -105,7 +105,9 @@ def get_sigelecs(args):
         for fname, sid_key in zip(args.sig_elec_file, sid_key_tup):
             sigelecs[sid_key] = read_sig_file(fname)
     else:
-        raise Exception("Need a significant electrode file for each subject-key combo")
+        raise Exception(
+            "Need a significant electrode file for each subject-key combo"
+        )
     return sigelecs
 
 
@@ -199,12 +201,16 @@ def get_cmap_smap(args):
             for label, style in zip(args.unique_labels, styles):
                 cmap[(label, key)] = color
                 smap[(label, key)] = style
-    elif args.lc_by == args.ls_by == "labels":  # both line color and style by labels
+    elif (
+        args.lc_by == args.ls_by == "labels"
+    ):  # both line color and style by labels
         for label, color, style in zip(args.unique_labels, colors, styles):
             for key in args.unique_keys:
                 cmap[(label, key)] = color
                 smap[(label, key)] = style
-    elif args.lc_by == args.ls_by == "keys":  # both line color and style by keys
+    elif (
+        args.lc_by == args.ls_by == "keys"
+    ):  # both line color and style by keys
         for key, color, style in zip(args.unique_keys, colors, styles):
             for label in args.unique_labels:
                 cmap[(label, key)] = color
@@ -236,7 +242,14 @@ def aggregate_data(args, sigelecs, parallel=True):
         for key in args.keys:
             fname = fmt % key
             data = read_folder(
-                data, fname, sigelecs, (load_sid, key), load_sid, key, label, parallel
+                data,
+                fname,
+                sigelecs,
+                (load_sid, key),
+                load_sid,
+                key,
+                label,
+                parallel,
             )
     if not len(data):
         print("No data found")
@@ -257,15 +270,16 @@ def organize_data(args, df):
     elec_name_dict = {}
     # new_sid = df.index.to_series().str.get(1).apply(add_sid) # add sid if no sid in front
     elec_name_dict = add_sid(df, elec_name_dict)
-    df = df.rename(index=elec_name_dict)  # rename electrodes to add sid in front
+    df = df.rename(
+        index=elec_name_dict
+    )  # rename electrodes to add sid in front
 
-    if len(args.lags_show) < len(
-        args.lags_plot
-    ):  # if we want to plot part of the lags and not all lags
+    if len(args.lags_show) < len(args.lags_plot):  # plot parts of lags
         print("Trimming Data")
+        lags_plot = [lag / 1000 for lag in args.lags_plot]
         chosen_lag_idx = [
             idx
-            for idx, element in enumerate(args.lags_plot)
+            for idx, element in enumerate(lags_plot)
             if element in args.lags_show
         ]
         df = df.loc[:, chosen_lag_idx]  # chose from lags to show for the plot
@@ -309,7 +323,11 @@ def plot_average(args, df, pdf):
         err = subdf.sem(axis=0)
         label = "-".join(mode)
         ax.fill_between(
-            args.x_vals_show, vals - err, vals + err, alpha=0.2, color=args.cmap[mode]
+            args.x_vals_show,
+            vals - err,
+            vals + err,
+            alpha=0.2,
+            color=args.cmap[mode],
         )
         ax.plot(
             args.x_vals_show,
@@ -336,12 +354,16 @@ def plot_average_split_by_key(args, df, pdf):
     if args.split == "horizontal":
         print("Plotting Average split horizontally by keys")
         fig, axes = plt.subplots(
-            1, len(args.unique_keys), figsize=(args.fig_size[0], args.fig_size[1])
+            1,
+            len(args.unique_keys),
+            figsize=(args.fig_size[0], args.fig_size[1]),
         )
     else:
         print("Plotting Average split vertically by keys")
         fig, axes = plt.subplots(
-            len(args.unique_keys), 1, figsize=(args.fig_size[0], args.fig_size[1])
+            len(args.unique_keys),
+            1,
+            figsize=(args.fig_size[0], args.fig_size[1]),
         )
     for ax, (mode, subdf) in zip(axes, df.groupby("mode", axis=0)):
         for label, subsubdf in subdf.groupby("label", axis=0):
@@ -379,12 +401,16 @@ def plot_average_split_by_label(args, df, pdf):
     if args.split == "horizontal":
         print("Plotting Average split horizontally by labels")
         fig, axes = plt.subplots(
-            1, len(args.unique_labels), figsize=(args.fig_size[0], args.fig_size[1])
+            1,
+            len(args.unique_labels),
+            figsize=(args.fig_size[0], args.fig_size[1]),
         )
     else:
         print("Plotting Average split vertically by labels")
         fig, axes = plt.subplots(
-            len(args.unique_labels), 1, figsize=(args.fig_size[0], args.fig_size[1])
+            len(args.unique_labels),
+            1,
+            figsize=(args.fig_size[0], args.fig_size[1]),
         )
     for ax, (label, subdf) in zip(axes, df.groupby("label", axis=0)):
         for mode, subsubdf in subdf.groupby("mode", axis=0):
@@ -442,7 +468,11 @@ def plot_electrodes(args, df, pdf, vmin, vmax):
         ax.axvline(0, ls="dashed", alpha=0.3, c="k")
         ax.set_ylim(vmin - 0.05, vmax + 0.05)  # .35
         ax.legend(loc="upper left", frameon=False)
-        ax.set(xlabel="Lag (s)", ylabel="Correlation (r)", title=f"{sid} {electrode}")
+        ax.set(
+            xlabel="Lag (s)",
+            ylabel="Correlation (r)",
+            title=f"{sid} {electrode}",
+        )
         imname = get_elecbrain(electrode)
         if os.path.isfile(imname):
             arr_image = plt.imread(imname, format="png")
@@ -462,11 +492,15 @@ def plot_electrodes_split_by_key(args, df, pdf, vmin, vmax):
     for (electrode, sid), subdf in df.groupby(["electrode", "sid"], axis=0):
         if args.split == "horizontal":
             fig, axes = plt.subplots(
-                1, len(args.unique_keys), figsize=(args.fig_size[0], args.fig_size[1])
+                1,
+                len(args.unique_keys),
+                figsize=(args.fig_size[0], args.fig_size[1]),
             )
         else:
             fig, axes = plt.subplots(
-                len(args.unique_keys), 1, figsize=(args.fig_size[0], args.fig_size[1])
+                len(args.unique_keys),
+                1,
+                figsize=(args.fig_size[0], args.fig_size[1]),
             )
         for ax, (mode, subsubdf) in zip(axes, subdf.groupby("mode")):
             for row, values in subsubdf.iterrows():
@@ -510,11 +544,15 @@ def plot_electrodes_split_by_label(args, df, pdf, vmin, vmax):
     for (electrode, sid), subdf in df.groupby(["electrode", "sid"], axis=0):
         if args.split == "horizontal":
             fig, axes = plt.subplots(
-                1, len(args.unique_labels), figsize=(args.fig_size[0], args.fig_size[1])
+                1,
+                len(args.unique_labels),
+                figsize=(args.fig_size[0], args.fig_size[1]),
             )
         else:
             fig, axes = plt.subplots(
-                len(args.unique_labels), 1, figsize=(args.fig_size[0], args.fig_size[1])
+                len(args.unique_labels),
+                1,
+                figsize=(args.fig_size[0], args.fig_size[1]),
             )
         for ax, (label, subsubdf) in zip(axes, subdf.groupby("label")):
             for row, values in subsubdf.iterrows():

@@ -18,9 +18,9 @@ E_LIST := $(shell seq 1 105)
 BC := 
 
 # 676 Electrode IDs
-SID := 676
-E_LIST := $(shell seq 1 125)
-BC := --bad-convos 38 39
+# SID := 676
+# E_LIST := $(shell seq 1 125)
+# BC := --bad-convos 38 39
 
 # 717 Electrode IDs
 # SID := 7170
@@ -36,7 +36,7 @@ SIG_FN :=
 # SIG_FN := --sig-elec-file 625-mariano-prod-new-53.csv 625-mariano-comp-new-30.csv # for sig-test
 # SIG_FN := --sig-elec-file 676-mariano-prod-new-109.csv 676-mariano-comp-new-104.csv # for sig-test
 # SIG_FN := --sig-elec-file 7170-comp-sig.csv 7170-prod-sig.csv
-# SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-comp.csv tfs-sig-file-625-sig-1.0-prod.csv tfs-sig-file-676-sig-1.0-comp.csv tfs-sig-file-676-sig-1.0-prod.csv
+# SIG_FN := --sig-elec-file tfs-sig-file-676-sig-1.0-comp.csv tfs-sig-file-676-sig-1.0-comp.csv
 
 
 # podcast electrode IDs
@@ -62,20 +62,8 @@ SIG_FN :=
 #
 
 ### podcast significant electrode list (if provided, override electrode IDs)
-# SIG_FN := --sig-elec-file test.csv
-# SIG_FN := --sig-elec-file 129-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH.csv
-# SIG_FN := --sig-elec-file 160-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH_newVer.csv
 # SIG_FN := --sig-elec-file podcast_160.csv
 
-### tfs significant electrode list (only used for plotting)(for encoding, use electrode IDs)
-# SIG_FN := 
-# SIG_FN := --sig-elec-file test.csv
-# SIG_FN := --sig-elec-file colton625.csv colton625.csv
-# SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-prod.csv
-# SIG_FN := --sig-elec-file 625-mariano-prod-new-53.csv 625-mariano-comp-new-30.csv # for sig-test
-# SIG_FN := --sig-elec-file 676-mariano-prod-new-109.csv 676-mariano-comp-new-104.csv # for sig-test
-# SIG_FN := --sig-elec-file 717_21-conv-elec-189.csv
-# SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-comp.csv tfs-sig-file-625-sig-1.0-prod.csv tfs-sig-file-676-sig-1.0-comp.csv tfs-sig-file-676-sig-1.0-prod.csv # for plotting
 
 PKL_IDENTIFIER := full
 # {full | trimmed}
@@ -98,8 +86,8 @@ CONVERSATION_IDX := 0
 # Choose which set of embeddings to use
 # {glove50 | gpt2-xl | blenderbot-small}
 EMB := blenderbot
-EMB := glove50
 EMB := blenderbot-small
+EMB := glove50
 EMB := gpt2-xl
 CNXT_LEN := 1024
 
@@ -109,12 +97,12 @@ WS := 200
 # Choose which set of embeddings to align with (intersection of embeddings)
 ALIGN_WITH := blenderbot-small
 ALIGN_WITH := gpt2-xl
-ALIGN_WITH := glove50
+ALIGN_WITH := glove50 gpt2-xl
 ALIGN_WITH := glove50 gpt2-xl blenderbot-small
 
 # Choose layer of embeddings to use
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
-LAYER_IDX := 16
+LAYER_IDX := 24 31 48
 
 # Choose whether to PCA (not used in encoding for now)
 # PCA_TO := 50
@@ -175,9 +163,9 @@ actually predicted by gpt2} (only used for podcast glove)
 
 # DM := no-trim
 # DM := gpt2-xl-pred
-DM := lag10k-25-all
-DM := lag10k-25-correct
-DM := lag10k-25-correct-shift-emb
+DM := lag10k-25-incorrect-shift-emb
+DM := lag10k-25-
+DM := lag10k-25-all-top0.5-emb3
 
 ############## Model Modification ##############
 # {best-lag: run encoding using the best lag (lag model with highest correlation)}
@@ -401,10 +389,11 @@ LAG_TK_LABLS :=
 # LAG_TK_LABLS := --lag-tick-labels -300 -60 -30 {-10..10..2} 30 60 300
 
 # zoomed-in version (from -2s to 2s)
-# LAGS_SHOW := {-2000..2000..25}
-# X_VALS_SHOW := {-2000..2000..25}
-# LAG_TKS := 
-# LAG_TK_LABLS :=
+LAGS_PLT := $(LAGS)
+LAGS_SHOW := {-2000..2000..25}
+X_VALS_SHOW := $(LAGS_SHOW)
+LAG_TKS := 
+LAG_TK_LABLS :=
 
 ########################## Other Plotting Parameters ##########################
 # Line color by (Choose what lines colors are decided by) (required)
@@ -419,8 +408,8 @@ LAG_TK_LABLS :=
 # Split by, if any (Choose how lines are split into plots) (Only effective when Split is not empty) (optional)
 # {  | --split-by labels | --split-by keys }
 
-PLT_PARAMS := --lc-by labels --ls-by keys --split horizontal --split-by keys # plot for prod+comp (247 plots)
 PLT_PARAMS := --lc-by labels --ls-by keys # plot for just one key (podcast plots)
+PLT_PARAMS := --lc-by labels --ls-by keys --split horizontal --split-by keys # plot for prod+comp (247 plots)
 
 # Figure Size (width height)
 FIG_SZ:= 15 6
@@ -437,13 +426,13 @@ The number of sig elec files should also equal # of sid * # of keys
 plot-new:
 	rm -f results/figures/*
 	python code/tfsplt_new.py \
-		--sid 625 676 \
+		--sid 676 \
 		--formats \
-			'results/tfs/bbot-layers-625/kw-tfs-full-625-blenderbot-small-lag10k-25-all-13/kw-200ms-all-625/*_%s.csv' \
-			'results/tfs/bbot-layers-625/kw-tfs-full-625-blenderbot-small-lag10k-25-all-14/kw-200ms-all-625/*_%s.csv' \
-			'results/tfs/bbot-layers-676/kw-tfs-full-676-blenderbot-small-lag10k-25-all-13/kw-200ms-all-676/*_%s.csv' \
-			'results/tfs/bbot-layers-676/kw-tfs-full-676-blenderbot-small-lag10k-25-all-14/kw-200ms-all-676/*_%s.csv' \
-		--labels bbot13 bbot14 bbot13 bbot14 \
+			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10k-25-all-mwf5/kw-200ms-all-676/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-glove50-lag10k-25-all-mwf5/kw-200ms-all-676/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-glove50-lag10k-25-mwf30-onehot/kw-200ms-all-676/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-glove50-lag10k-25-mwf5-onehot/kw-200ms-all-676/*_%s.csv' \
+		--labels gpt2_n-1 glove onehot-mwf30 onehot-mwf5 \
 		--keys comp prod \
 		$(SIG_FN) \
 		--fig-size $(FIG_SZ) \
@@ -453,30 +442,30 @@ plot-new:
 		$(LAG_TKS) \
 		$(LAG_TK_LABLS) \
 		$(PLT_PARAMS) \
-		--outfile results/figures/tfs-bbot-layer14.pdf
+		--outfile results/figures/tfs-676-1hot.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
-# SIG_ELECS := --sig-elecs
+SIG_ELECS := --sig-elecs
 # DIFF_AREA := --diff-area
 # HAS_CTX := --has-ctx
 
 CONDS := all correct incorrect all-flip
-CONDS := all
 CONDS := all correct incorrect
+CONDS := all shift-emb
 
 plot-layers:
 	rm -f results/figures/*
 	python code/tfsplt_layer.py \
-		--sid 7170 \
-		--layer-num 48 \
-		--top-dir results/tfs/gpt2-layers-7170-good-v2 \
+		--sid 625 \
+		--layer-num 49 \
+		--top-dir results/tfs/gpt2-layers-625 \
 		--modes comp prod \
 		--conditions $(CONDS) \
 		$(HAS_CTX) \
 		$(SIG_ELECS) \
 		$(DIFF_AREA) \
-		--outfile results/figures/7170_eric_area.pdf
+		--outfile results/figures/test.pdf
 
 
 # -----------------------------------------------------------------------------

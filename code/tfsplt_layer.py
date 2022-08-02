@@ -41,6 +41,11 @@ def get_child_folders(args):
             format = [
                 ind_format for ind_format in format if "flip" not in ind_format
             ]  # blenderbot
+            format = [
+                ind_format
+                for ind_format in format
+                if "shift-emb" not in ind_format
+            ]  # blenderbot
         if args.is_test:
             format = [
                 ind_format
@@ -650,18 +655,19 @@ def main():
     args = parse_arguments()
     args = set_up_environ(args)  # add True to be in test mode
 
-    # # Need to aggregate data
-    # folders = get_child_folders(args)  # get child folders
-    # df = aggregate_folders_parallel(args, folders)  # aggregate data
-    # breakpoint()
+    ####### Aggregate data #######
+    folders = get_child_folders(args)  # get child folders
+    df = aggregate_folders_parallel(args, folders)  # aggregate data
+    breakpoint()
 
-    # df.to_csv(args.top_dir + "/summary_area_sig.csv")
-    # breakpoint()
+    df.to_csv(args.top_dir + "/summary_sig.csv")
+    breakpoint()
 
-    df = pd.read_csv(args.top_dir + "/summary_area_sig.csv")
-    df = df.sort_values(by=["condition", "mode", "layer"])
-    df.set_index(["condition", "mode", "layer"], inplace=True)
-    df.columns = df.columns.astype(int)
+    ####### Read data #######
+    # df = pd.read_csv(args.top_dir + "/summary_area_sig.csv")
+    # df = df.sort_values(by=["condition", "mode", "layer"])
+    # df.set_index(["condition", "mode", "layer"], inplace=True)
+    # df.columns = df.columns.astype(int)
     breakpoint()
 
     print("Plotting")
