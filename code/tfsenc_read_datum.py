@@ -63,7 +63,9 @@ def make_input_from_tokens(token_list):
     Returns:
         [type]: [description]
     """
-    windows = [tuple(token_list[x : x + 2]) for x in range(len(token_list) - 2 + 1)]
+    windows = [
+        tuple(token_list[x : x + 2]) for x in range(len(token_list) - 2 + 1)
+    ]
 
     return windows
 
@@ -107,7 +109,9 @@ def add_signal_length(df, stitch):
     df["conv_signal_length"] = np.nan
 
     for idx, conv in enumerate(df.conversation_id.unique()):
-        df.loc[df.conversation_id == conv, "conv_signal_length"] = signal_lengths[idx]
+        df.loc[
+            df.conversation_id == conv, "conv_signal_length"
+        ] = signal_lengths[idx]
 
     return df
 
@@ -223,8 +227,12 @@ def process_datum(args, df, stitch):
 
     df = add_signal_length(df, stitch)
 
-    df = df.loc[~df["conversation_id"].isin(args.bad_convos)]  # filter bad convos
-    assert len(stitch) - len(args.bad_convos) == df.conversation_id.nunique() + 1
+    df = df.loc[
+        ~df["conversation_id"].isin(args.bad_convos)
+    ]  # filter bad convos
+    assert (
+        len(stitch) - len(args.bad_convos) == df.conversation_id.nunique() + 1
+    )
 
     if args.project_id == "tfs" and not all(
         [item in df.columns for item in ["adjusted_onset", "adjusted_offset"]]
@@ -270,7 +278,9 @@ def filter_datum(args, df):
     Returns:
         DataFrame: filtered datum
     """
-    if "glove50" in args.emb_type.lower():  # filter based on embedding type argument
+    if (
+        "glove50" in args.emb_type.lower()
+    ):  # filter based on embedding type argument
         common = df.in_glove
     elif "gpt2" in args.emb_type.lower():
         common = df.in_gpt2
@@ -319,7 +329,8 @@ def mod_datum_by_preds(args, datum, emb_type):
         # load second datum
         if emb_type == "gpt2-xl":
             second_datum_name = (
-                str(args.sid) + "_full_gpt2-xl_cnxt_1024_layer_48_embeddings.pkl"
+                str(args.sid)
+                + "_full_gpt2-xl_cnxt_1024_layer_48_embeddings.pkl"
             )
         elif emb_type == "blenderbot-small":
             second_datum_name = (
@@ -342,10 +353,14 @@ def mod_datum_by_preds(args, datum, emb_type):
 
     # modify datum based on correct or incorrect predictions
     if "incorrect" in args.datum_mod:  # incorrectly predicted (top 1)
-        datum = datum[datum.word.str.lower() != datum.top1_pred.str.lower().str.strip()]
+        datum = datum[
+            datum.word.str.lower() != datum.top1_pred.str.lower().str.strip()
+        ]
         print(f"Selected {len(datum.index)} incorrect words")
     elif "correct" in args.datum_mod:  # correctly predicted (top 1)
-        datum = datum[datum.word.str.lower() == datum.top1_pred.str.lower().str.strip()]
+        datum = datum[
+            datum.word.str.lower() == datum.top1_pred.str.lower().str.strip()
+        ]
         print(f"Selected {len(datum.index)} correct words")
     elif "top0.5" in args.datum_mod:  # top 30% pred prob
         top = datum.top1_pred_prob.quantile(0.5)
@@ -377,20 +392,24 @@ def shift_emb(args, datum):
     Returns:
         DataFrame: datum with shifted embeddings
     """
-    partial = args.datum_mod[args.datum_mod.find("shift-emb") + 9]
-    if len(partial) == 0:
-        partial = "1"
-    if partial.find("-") > 0:
+    partial = args.datum_mod[args.datum_mod.find("shift-emb") + 9 :]
+    
+    if partial.find("-") >= 0:
         partial = partial[: partial.find("-")]
     else:
         pass
+    if len(partial) == 0:
+        partial = "1"
+
     assert partial.isdigit()
     shift_num = int(partial)
 
     before_shift_num = len(datum.index)
     for i in np.arange(shift_num):
         datum.loc[:, "embeddings"] = datum.embeddings.shift(-1)
-        datum = datum.loc[datum.conversation_id.shift(-1) == datum.conversation_id, :]
+        datum = datum.loc[
+            datum.conversation_id.shift(-1) == datum.conversation_id, :
+        ]
         if "blenderbot-small" in args.emb_type.lower():
             datum = datum[datum.speaker.shift(-1) == datum.speaker]
     print(
@@ -414,8 +433,14 @@ def trim_datum(args, datum):
     lag = int(args.lags[-1] / 1000 * 512)  # trim edges based on lag
     original_len = len(datum.index)
     datum = datum.loc[
-        ((datum["adjusted_onset"] - lag) >= (datum["convo_onset"] + half_window + 1))
-        & ((datum["adjusted_onset"] + lag) <= (datum["convo_offset"] - half_window - 1))
+        (
+            (datum["adjusted_onset"] - lag)
+            >= (datum["convo_onset"] + half_window + 1)
+        )
+        & (
+            (datum["adjusted_onset"] + lag)
+            <= (datum["convo_offset"] - half_window - 1)
+        )
     ]
     new_datum_len = len(datum.index)
     print(
@@ -466,7 +491,9 @@ def mod_datum(args, datum):
             pred_type = "gpt2-xl"
         elif "bbot" in args.datum_mod:
             pred_type = "blenderbot-small"
-        assert "glove" not in pred_type, "Glove embeddings does not have predictions"
+        assert (
+            "glove" not in pred_type
+        ), "Glove embeddings does not have predictions"
         datum = mod_datum_by_preds(args, datum, pred_type)
 
     # else:

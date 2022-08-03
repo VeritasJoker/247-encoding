@@ -18,9 +18,9 @@ E_LIST := $(shell seq 1 105)
 BC := 
 
 # 676 Electrode IDs
-# SID := 676
-# E_LIST := $(shell seq 1 125)
-# BC := --bad-convos 38 39
+SID := 676
+E_LIST := $(shell seq 1 125)
+BC := --bad-convos 38 39
 
 # 717 Electrode IDs
 # SID := 7170
@@ -36,7 +36,7 @@ SIG_FN :=
 # SIG_FN := --sig-elec-file 625-mariano-prod-new-53.csv 625-mariano-comp-new-30.csv # for sig-test
 # SIG_FN := --sig-elec-file 676-mariano-prod-new-109.csv 676-mariano-comp-new-104.csv # for sig-test
 # SIG_FN := --sig-elec-file 7170-comp-sig.csv 7170-prod-sig.csv
-# SIG_FN := --sig-elec-file tfs-sig-file-676-sig-1.0-comp.csv tfs-sig-file-676-sig-1.0-comp.csv
+# SIG_FN := --sig-elec-file tfs-sig-file-676-sig-1.0-comp.csv tfs-sig-file-676-sig-1.0-prod.csv
 
 
 # podcast electrode IDs
@@ -102,7 +102,7 @@ ALIGN_WITH := glove50 gpt2-xl blenderbot-small
 
 # Choose layer of embeddings to use
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
-LAYER_IDX := 24 31 48
+LAYER_IDX := 48
 
 # Choose whether to PCA (not used in encoding for now)
 # PCA_TO := 50
@@ -165,7 +165,7 @@ actually predicted by gpt2} (only used for podcast glove)
 # DM := gpt2-xl-pred
 DM := lag10k-25-incorrect-shift-emb
 DM := lag10k-25-
-DM := lag10k-25-all-top0.5-emb3
+DM := lag10k-25-top0.5-shift-emb-1024-48
 
 ############## Model Modification ##############
 # {best-lag: run encoding using the best lag (lag model with highest correlation)}
@@ -428,11 +428,12 @@ plot-new:
 	python code/tfsplt_new.py \
 		--sid 676 \
 		--formats \
-			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10k-25-all-mwf5/kw-200ms-all-676/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-glove50-lag10k-25-all-mwf5/kw-200ms-all-676/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-glove50-lag10k-25-mwf30-onehot/kw-200ms-all-676/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-glove50-lag10k-25-mwf5-onehot/kw-200ms-all-676/*_%s.csv' \
-		--labels gpt2_n-1 glove onehot-mwf30 onehot-mwf5 \
+			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10k-25-all-1024-48/kw-200ms-all-676/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10k-25-all-shift-emb-1024-48/kw-200ms-all-676/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-glove50-lag10k-25-all/kw-200ms-all-676/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10k-25-all-shift-emb2/kw-200ms-all-676/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10k-25-all-shift-emb3/kw-200ms-all-676/*_%s.csv' \
+		--labels gpt2_n-1 gpt2-n glove gpt2-n+1 gpt2-n+2 \
 		--keys comp prod \
 		$(SIG_FN) \
 		--fig-size $(FIG_SZ) \
@@ -442,7 +443,7 @@ plot-new:
 		$(LAG_TKS) \
 		$(LAG_TK_LABLS) \
 		$(PLT_PARAMS) \
-		--outfile results/figures/tfs-676-1hot.pdf
+		--outfile results/figures/tfs-676-allns.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
