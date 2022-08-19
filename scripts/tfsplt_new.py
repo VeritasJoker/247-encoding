@@ -45,6 +45,7 @@ def arg_parser():  # argument parser
 def set_up_environ(args):
 
     args.x_vals_show = [x_val / 1000 for x_val in args.x_vals_show]
+    args.lags_plot = [lag / 1000 for lag in args.lags_plot]
     args.lags_show = [lag / 1000 for lag in args.lags_show]
     args.unique_labels = list(dict.fromkeys(args.labels))
     args.unique_keys = list(dict.fromkeys(args.keys))
@@ -247,8 +248,9 @@ def aggregate_data(args, sigelecs, parallel=True):
                 sigelecs,
                 (load_sid, key),
                 load_sid,
-                key,
                 label,
+                key,
+                "all",
                 parallel,
             )
     if not len(data):
@@ -261,6 +263,7 @@ def aggregate_data(args, sigelecs, parallel=True):
 def organize_data(args, df):
 
     df.set_index(["label", "electrode", "mode", "sid"], inplace=True)
+    df = df.drop(columns="type")
 
     n_lags, n_df = len(args.lags_plot), len(df.columns)
     assert (
@@ -276,10 +279,9 @@ def organize_data(args, df):
 
     if len(args.lags_show) < len(args.lags_plot):  # plot parts of lags
         print("Trimming Data")
-        lags_plot = [lag / 1000 for lag in args.lags_plot]
         chosen_lag_idx = [
             idx
-            for idx, element in enumerate(lags_plot)
+            for idx, element in enumerate(args.lags_plot)
             if element in args.lags_show
         ]
         df = df.loc[:, chosen_lag_idx]  # chose from lags to show for the plot
@@ -595,8 +597,8 @@ def plot_electrodes_split_by_label(args, df, pdf, vmin, vmax):
 def main():
 
     args = arg_parser()
-    arg_assert(args)  # some sanity checks
     args = set_up_environ(args)  # additional indirect args
+    arg_assert(args)  # some sanity checks
 
     sigelecs = get_sigelecs(args)
     df = aggregate_data(args, sigelecs)

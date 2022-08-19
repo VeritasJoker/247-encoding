@@ -5,10 +5,12 @@ import string
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import normalize
+from scipy.spatial import distance
 from utils import load_pickle
 
-# import gensim.downloader as api
+import gensim.downloader as api
 # import re
+
 
 NONWORDS = {"hm", "huh", "mhm", "mm", "oh", "uh", "uhuh", "um"}
 
@@ -23,6 +25,17 @@ def drop_nan_embeddings(df):
     df = df[~df["is_nan"]]
 
     return df
+
+
+def get_dist(arr1, arr2):
+    return distance.cosine(arr1, arr2)
+
+
+def get_vector(x, glove):
+    try:
+        return glove.get_vector(x)
+    except KeyError:
+        return None
 
 
 def adjust_onset_offset(args, df, stitch_index):
@@ -131,9 +144,9 @@ def normalize_embeddings(args, df):
 
     try:
         k = normalize(k, norm=args.normalize, axis=1)
-    except ValueError:
         df["embeddings"] = k.tolist()
-
+    except ValueError:
+        print("Error in normalization")
     return df
 
 
@@ -262,7 +275,8 @@ def process_datum(args, df, stitch):
         except KeyError:
             pass
 
-    if not args.normalize:
+    if args.normalize:
+        print("Normalizing embeddings")
         df = normalize_embeddings(args, df)
 
     return df
@@ -308,6 +322,25 @@ def filter_datum(args, df):
         common &= freq_mask
 
     df = df[common]
+    return df
+
+
+def add_content_cos_dist(df):
+    glove = api.load("glove-wiki-gigaword-50")
+    df["emb_actual"] = df.word.str.strip().apply(
+        lambda x: get_vector(x.lower(), glove)
+    )
+    df = df[df.emb_actual.notna()]
+
+    df["emb_counterfactual"] = df.top1_pred.str.strip().apply(
+        lambda x: get_vector(x.lower(), glove)
+    )
+    df = df[df.emb_counterfactual.notna()]
+
+    df["emb_dist"] = df.apply(
+        lambda x: get_dist(x["emb_actual"], x["emb_counterfactual"]), axis=1
+    )
+
     return df
 
 
@@ -370,6 +403,14 @@ def mod_datum_by_preds(args, datum, emb_type):
         bot = datum.top1_pred_prob.quantile(0.5)
         datum = datum[datum.top1_pred_prob <= bot]
         print(f"Selected {len(datum.index)} bot pred prob words")
+    elif "emb-dist" in args.datum_mod:
+        datum = add_content_cos_dist(datum)
+        if "emb-dist0.5" in args.datum_mod:
+            datum = datum[datum.emb_dist >= 0.5]
+            print(f"Selected {len(datum.index)} words with large cos distance")
+        elif "emb-dist0" in args.datum_mod:
+            datum = datum[datum.emb_dist == 0]
+            print(f"Selected {len(datum.index)} words with 0 cos distance")
 
     # elif args.datum_mod == emb_type + "-pred": # for incorrectly predicted words, replace with top 1 pred (only used for podcast glove)
     #     glove = api.load('glove-wiki-gigaword-50')
@@ -393,7 +434,7 @@ def shift_emb(args, datum):
         DataFrame: datum with shifted embeddings
     """
     partial = args.datum_mod[args.datum_mod.find("shift-emb") + 9 :]
-    
+
     if partial.find("-") >= 0:
         partial = partial[: partial.find("-")]
     else:
@@ -469,6 +510,14 @@ def mod_datum(args, datum):
     else:
         datum = trim_datum(args, datum)  # trim edges
 
+    if "zeroshot" in args.datum_mod:  # zeroshot datum
+        datum = clean_datum(args.emb_type, datum)
+        datum = zeroshot_datum(datum)
+
+    elif "onehot" in args.datum_mod:  # onehot encoding datum
+        datum = clean_datum(args.emb_type, datum)
+        datum = onehot_datum(datum)
+
     if "shift-emb" in args.datum_mod:  # shift embeddings to include word
         datum = shift_emb(args, datum)
     else:
@@ -476,14 +525,6 @@ def mod_datum(args, datum):
 
     if "all" in args.datum_mod:
         pass
-
-    elif "zeroshot" in args.datum_mod:
-        datum = clean_datum(args.emb_type, datum)
-        datum = zeroshot_datum(datum)
-
-    elif "onehot" in args.datum_mod:
-        datum = clean_datum(args.emb_type, datum)
-        datum = onehot_datum(datum)
 
     else:  # modify datum based on predictions
         pred_type = args.emb_type

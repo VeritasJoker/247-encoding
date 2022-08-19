@@ -22,7 +22,7 @@ def read_sig_file(filename, old_results=False):
     return set(elecs)
 
 
-def read_file(file_name, sigelecs, sigelecs_key, load_sid, mode, label):
+def read_file(file_name, sigelecs, sigelecs_key, load_sid, label, mode, type):
 
     elec = os.path.basename(file_name).replace(".csv", "")[:-5]
     if (
@@ -39,6 +39,7 @@ def read_file(file_name, sigelecs, sigelecs_key, load_sid, mode, label):
     df.insert(0, "mode", mode)
     df.insert(0, "electrode", elec)
     df.insert(0, "label", label)
+    df.insert(0, "type", type)
 
     return df
 
@@ -49,8 +50,9 @@ def read_folder(
     sigelecs,
     sigelecs_key,
     load_sid="load_sid",
-    mode="mode",
     label="label",
+    mode="mode",
+    type="all",
     parallel=False,
 ):
 
@@ -67,8 +69,9 @@ def read_folder(
                 sigelecs=sigelecs,
                 sigelecs_key=sigelecs_key,
                 load_sid=load_sid,
-                mode=mode,
                 label=label,
+                mode=mode,
+                type=type,
             ),
             files,
         ):
@@ -78,7 +81,13 @@ def read_folder(
         for resultfn in files:
             data.append(
                 read_file(
-                    resultfn, sigelecs, sigelecs_key, load_sid, mode, label
+                    resultfn,
+                    sigelecs,
+                    sigelecs_key,
+                    load_sid,
+                    label,
+                    mode,
+                    type,
                 )
             )
 
