@@ -9,6 +9,7 @@ from scipy.spatial import distance
 from utils import load_pickle
 
 import gensim.downloader as api
+
 # import re
 
 
@@ -302,6 +303,8 @@ def filter_datum(args, df):
         common = df.in_blenderbot_small_90M
     elif "blenderbot" in args.emb_type.lower():
         common = df.in_blenderbot_3B
+    elif "bert-base-cased" in args.emb_type.lower():
+        common = df.in_bert_base_cased
 
     for model in args.align_with:  # filter based on align with arguments
         if "glove" in model:
@@ -312,6 +315,8 @@ def filter_datum(args, df):
             common = common & df.in_blenderbot_small_90M
         elif "blenderbot" in model:
             common = common & df.in_blenderbot_3B
+        elif "bert-base_cased" in model:
+            common = common & df.in_bert_base_cased
 
     if args.exclude_nonwords:  # filter based on exclude_nonwords argument
         nonword_mask = df.word.str.lower().apply(lambda x: x in NONWORDS)
@@ -355,7 +360,9 @@ def mod_datum_by_preds(args, datum, emb_type):
     Returns:
         DataFrame: further filtered datum
     """
-    if emb_type in args.load_emb_file:  # current datum has the correct emb_type
+    if (
+        emb_type == args.emb_type.lower()
+    ):  # current datum has the correct emb_type
         pass
     else:  # current datum does not have the correct emb_type, need to load a second datum
 
@@ -377,7 +384,7 @@ def mod_datum_by_preds(args, datum, emb_type):
         ]  # load second datum
         # merge second datum prediction columns to datum
         datum = datum.drop(
-            ["top1_pred", "top_1_pred_prob"], axis=1, errors="ignore"
+            ["top1_pred", "top1_pred_prob"], axis=1, errors="ignore"
         )  # delete the current top predictions if any
         datum = datum[datum.adjusted_onset.notna()]
         second_datum = second_datum[second_datum.adjusted_onset.notna()]
@@ -451,7 +458,10 @@ def shift_emb(args, datum):
         datum = datum.loc[
             datum.conversation_id.shift(-1) == datum.conversation_id, :
         ]
-        if "blenderbot-small" in args.emb_type.lower():
+        if (
+            "blenderbot-small" in args.emb_type.lower()
+            or "bert" in args.emb_type.lower()
+        ):
             datum = datum[datum.speaker.shift(-1) == datum.speaker]
     print(
         f"Shifting {shift_num} times resulted in {before_shift_num - len(datum.index)} less words"
@@ -523,14 +533,14 @@ def mod_datum(args, datum):
     else:
         pass
 
-    if "all" in args.datum_mod:
+    if "-all" in args.datum_mod:
         pass
 
     else:  # modify datum based on predictions
         pred_type = args.emb_type
         if "gpt2-xl" in args.datum_mod:
             pred_type = "gpt2-xl"
-        elif "bbot" in args.datum_mod:
+        elif "blenerbot-small" in args.datum_mod:
             pred_type = "blenderbot-small"
         assert (
             "glove" not in pred_type
@@ -554,11 +564,13 @@ def read_datum(args, stitch):
         DataFrame: processed and filtered datum
     """
     file_name = os.path.join(args.PICKLE_DIR, args.load_emb_file)
+
     df = load_datum(file_name)
     print(f"After loading: Datum loads with {len(df)} words")
 
     df = process_datum(args, df, stitch)
     print(f"After processing: Datum now has {len(df)} words")
+
     df = filter_datum(args, df)
     print(f"After filtering: Datum now has {len(df)} words")
 

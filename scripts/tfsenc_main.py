@@ -314,7 +314,7 @@ def parallel_encoding(args, electrode_info, datum, stitch_index, parallel=True):
         None
     """
 
-    if args.emb_type == "gpt2-xl" and args.sid == 676:
+    if "gpt2-xl" in args.emb_type and args.sid == 676:
         parallel = False
     if parallel:
         print("Running all electrodes in parallel")
