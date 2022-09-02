@@ -18,9 +18,9 @@ E_LIST := $(shell seq 1 105)
 BC := 
 
 # 676 Electrode IDs
-SID := 676
-E_LIST := $(shell seq 1 125)
-BC := --bad-convos 38 39
+# SID := 676
+# E_LIST := $(shell seq 1 125)
+# BC := --bad-convos 38 39
 
 # 717 Electrode IDs
 # SID := 7170
@@ -36,7 +36,8 @@ SIG_FN :=
 # SIG_FN := --sig-elec-file 625-mariano-prod-new-53.csv 625-mariano-comp-new-30.csv # for sig-test
 # SIG_FN := --sig-elec-file 676-mariano-prod-new-109.csv 676-mariano-comp-new-104.csv # for sig-test
 # SIG_FN := --sig-elec-file 7170-comp-sig.csv 7170-prod-sig.csv
-SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-comp.csv tfs-sig-file-625-sig-1.0-prod.csv
+# SIG_FN := --sig-elec-file tfs-sig-file-676-sig-1.0-comp.csv tfs-sig-file-676-sig-1.0-prod.csv
+# SIG_FN := --sig-elec-file tfs-sig-file-676-max-0.1-comp.csv tfs-sig-file-676-max-0.1-prod.csv
 
 
 # podcast electrode IDs
@@ -86,11 +87,11 @@ CONVERSATION_IDX := 0
 # Choose which set of embeddings to use
 # {glove50 | gpt2-xl | blenderbot-small}
 EMB := blenderbot
-EMB := gpt2-xl
+EMB := blenderbot-small
 EMB := glove50
 EMB := bert-base-cased
+EMB := gpt2-xl
 EMB := gpt2-xl-bert
-EMB := blenderbot-small
 CNXT_LEN := 512
 
 # Choose the window size to average for each point
@@ -105,7 +106,7 @@ ALIGN_WITH := glove50 gpt2-xl blenderbot-small
 
 # Choose layer of embeddings to use
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
-LAYER_IDX := 16
+LAYER_IDX := 48
 
 # Choose whether to PCA (not used in encoding for now)
 # PCA_TO := 50
@@ -167,7 +168,7 @@ actually predicted by gpt2} (only used for podcast glove)
 # DM := no-trim
 # DM := gpt2-xl-pred
 DM := lag10k-25-incorrect-shift-emb
-DM := lag10k-25-gpt2-xl-top0.5
+DM := lag10k-25-all-shift-embn1
 
 ############## Model Modification ##############
 # {best-lag: run encoding using the best lag (lag model with highest correlation)}
@@ -428,14 +429,16 @@ The number of sig elec files should also equal # of sid * # of keys
 plot-new:
 	rm -f results/figures/*
 	python scripts/tfsplt_new.py \
-		--sid 625 \
+		--sid 676 \
 		--formats \
-			'results/tfs/kw-tfs-full-625-gpt2-xl-lag10k-25-all-1024-48/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-gpt2-xl-lag10k-25-all-shift-emb-1024-48/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-bert-base-cased-lag10k-25-all/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-bert-base-cased-lag10k-25-all-mask/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-gpt2-xl-bert-lag10k-25-all/*/*_%s.csv' \
-		--labels gpt2-n-1 gpt2-n bert bert-masked gpt2-n-bert \
+			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10k-25-all-1024-48/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10k-25-all-shift-emb-1024-48/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-bert-base-cased-lag10k-25-all/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-bert-base-cased-mask-lag10k-25-all/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-gpt2-xl-bert-lag10k-25-all/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-glove50-lag10k-25-all/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-glove50-lag10k-25-all-shift-emb/*/*_%s.csv' \
+		--labels gpt2-n-1 gpt2-n bert bert-masked gpt2-n-bert glove glove-n+1 \
 		--keys comp prod \
 		$(SIG_FN) \
 		--fig-size $(FIG_SZ) \
@@ -445,64 +448,24 @@ plot-new:
 		$(LAG_TKS) \
 		$(LAG_TK_LABLS) \
 		$(PLT_PARAMS) \
-		--outfile results/figures/tfs-625-bert-clean.pdf
+		--outfile results/figures/tfs-676-bert-test.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
 plot-twosplit:
 	rm -f results/figures/*
 	python scripts/tfsplt_newnew.py \
-		--sid 625 \
+		--sid 676 \
 		--formats \
-			'results/tfs/kw-tfs-full-625-blenderbot-small-lag10k-25-all/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-blenderbot-small-lag10k-25-all/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-glove50-lag10k-25-all/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-glove50-lag10k-25-all/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-bert-base-cased-lag10k-25-all/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-bert-base-cased-lag10k-25-all/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-gpt2-xl-bert-lag10k-25-all/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-gpt2-xl-bert-lag10k-25-all/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-blenderbot-small-lag10k-25-gpt2-xl-top0.5/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-blenderbot-small-lag10k-25-gpt2-xl-top0.5/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-glove50-lag10k-25-gpt2-xl-top0.5/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-glove50-lag10k-25-gpt2-xl-top0.5/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-bert-base-cased-lag10k-25-gpt2-xl-top0.5/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-bert-base-cased-lag10k-25-gpt2-xl-top0.5/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-gpt2-xl-bert-lag10k-25-gpt2-xl-top0.5/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-gpt2-xl-bert-lag10k-25-gpt2-xl-top0.5/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-blenderbot-small-lag10k-25-gpt2-xl-bot0.5/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-blenderbot-small-lag10k-25-gpt2-xl-bot0.5/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-glove50-lag10k-25-gpt2-xl-bot0.5/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-glove50-lag10k-25-gpt2-xl-bot0.5/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-bert-base-cased-lag10k-25-gpt2-xl-bot0.5/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-bert-base-cased-lag10k-25-gpt2-xl-bot0.5/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-gpt2-xl-bert-lag10k-25-gpt2-xl-bot0.5/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-gpt2-xl-bert-lag10k-25-gpt2-xl-bot0.5/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10k-25-top0.5/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10k-25-top0.5/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10k-25-bot0.5/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10k-25-bot0.5/*/*_%s.csv' \
 		--keys \
-			'bbot comp all' \
-			'bbot prod all' \
-			'glove comp all' \
-			'glove prod all' \
-			'bert comp all' \
-			'bert prod all' \
-			'gpt2-n-bert comp all' \
-			'gpt2-n-bert prod all' \
-			'bbot comp top-0.5' \
-			'bbot prod top-0.5' \
-			'glove comp top-0.5' \
-			'glove prod top-0.5' \
-			'bert comp top-0.5' \
-			'bert prod top-0.5' \
-			'gpt2-n-bert comp top-0.5' \
-			'gpt2-n-bert prod top-0.5' \
-			'bbot comp bot-0.5' \
-			'bbot prod bot-0.5' \
-			'glove comp bot-0.5' \
-			'glove prod bot-0.5' \
-			'bert comp bot-0.5' \
-			'bert prod bot-0.5' \
-			'gpt2-n-bert comp bot-0.5' \
-			'gpt2-n-bert prod bot-0.5' \
+			'gpt2-n-1 comp top0.5' \
+			'gpt2-n-1 prod top0.5' \
+			'gpt2-n-1 comp bot0.5' \
+			'gpt2-n-1 prod bot0.5' \
 		$(SIG_FN) \
 		--fig-size $(FIG_SZ) \
 		--lags-plot $(LAGS_PLT) \
@@ -514,7 +477,7 @@ plot-twosplit:
 		--ls-by 1 \
 		--split-hor 1 \
 		--split-ver 2 \
-		--outfile results/figures/tfs-625-models_gpt2-preds.pdf
+		--outfile results/figures/tfs-676-gpt2-xl_gpt2-preds2.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
@@ -548,11 +511,11 @@ SP := 1
 
 sig-test:
 	rm -f results/figures/*
-	python scripts/sig_test.py \
+	python scripts/tfsmis_sig_test.py \
 		--sid 676 \
 		--formats \
-			'results/tfs/625-676/kw-tfs-full-676-glove50-lag10-25/kw-200ms-all-676/*_%s.csv' \
-		--labels glove \
+			'results/tfs/kw-tfs-full-676-gpt2-xl-bert-lag10k-25-all/*/*_%s.csv' \
+		--labels gpt-n-bert \
 		--keys prod comp \
 		--values $(LAGS) \
 		$(SIG_FN) \

@@ -25,16 +25,17 @@ def read_sig_file(filename, old_results=False):
 def read_file(file_name, sigelecs, sigelecs_key, load_sid, label, mode, type):
 
     elec = os.path.basename(file_name).replace(".csv", "")[:-5]
-    if (
+    if ( # Skip electrodes if they're not part of the sig list
         len(sigelecs)
         and elec not in sigelecs[sigelecs_key]
         and "whole_brain" not in sigelecs_key
     ):
         return None
-    # Skip electrodes if they're not part of the sig list
     # if 'LGA' not in elec and 'LGB' not in elec: # for 717, only grid
     #     continue
     df = pd.read_csv(file_name, header=None)
+    # if df.max(axis=1)[0] < 0.1:
+    #     return None
     df.insert(0, "sid", load_sid)
     df.insert(0, "mode", mode)
     df.insert(0, "electrode", elec)

@@ -380,11 +380,13 @@ def mod_datum_by_preds(args, datum, emb_type):
             args.PICKLE_DIR, second_datum_name
         )  # second datum full path
         second_datum = load_datum(second_datum_path)[
-            ["adjusted_onset", "top1_pred", "top1_pred_prob"]
+            ["adjusted_onset", "top1_pred", "top1_pred_prob", "true_pred_prob"]
         ]  # load second datum
         # merge second datum prediction columns to datum
         datum = datum.drop(
-            ["top1_pred", "top1_pred_prob"], axis=1, errors="ignore"
+            ["top1_pred", "top1_pred_prob", "true_pred_prob"],
+            axis=1,
+            errors="ignore",
         )  # delete the current top predictions if any
         datum = datum[datum.adjusted_onset.notna()]
         second_datum = second_datum[second_datum.adjusted_onset.notna()]
@@ -403,12 +405,12 @@ def mod_datum_by_preds(args, datum, emb_type):
         ]
         print(f"Selected {len(datum.index)} correct words")
     elif "top0.5" in args.datum_mod:  # top 30% pred prob
-        top = datum.top1_pred_prob.quantile(0.5)
-        datum = datum[datum.top1_pred_prob >= top]
+        top = datum.true_pred_prob.quantile(0.5)
+        datum = datum[datum.true_pred_prob >= top]
         print(f"Selected {len(datum.index)} top pred prob words")
     elif "bot0.5" in args.datum_mod:  # bot 30% pred prob
-        bot = datum.top1_pred_prob.quantile(0.5)
-        datum = datum[datum.top1_pred_prob <= bot]
+        bot = datum.true_pred_prob.quantile(0.5)
+        datum = datum[datum.true_pred_prob <= bot]
         print(f"Selected {len(datum.index)} bot pred prob words")
     elif "emb-dist" in args.datum_mod:
         datum = add_content_cos_dist(datum)
@@ -449,20 +451,22 @@ def shift_emb(args, datum):
     if len(partial) == 0:
         partial = "1"
 
+    step = -1
+    if "n" in partial:
+        step = 1
+        partial = partial[1:]
     assert partial.isdigit()
     shift_num = int(partial)
 
     before_shift_num = len(datum.index)
     for i in np.arange(shift_num):
-        datum.loc[:, "embeddings"] = datum.embeddings.shift(-1)
-        datum = datum.loc[
-            datum.conversation_id.shift(-1) == datum.conversation_id, :
-        ]
+        datum["embeddings"] = datum.embeddings.shift(step)
+        datum = datum[datum.conversation_id.shift(step) == datum.conversation_id]
         if (
             "blenderbot-small" in args.emb_type.lower()
             or "bert" in args.emb_type.lower()
         ):
-            datum = datum[datum.speaker.shift(-1) == datum.speaker]
+            datum = datum[datum.production.shift(step) == datum.production]
     print(
         f"Shifting {shift_num} times resulted in {before_shift_num - len(datum.index)} less words"
     )

@@ -54,9 +54,11 @@ def plot_hist_all(df):
 def main():
 
     file_name = "data/tfs/7170/pickles/7170_full_gpt2-xl_cnxt_1024_layer_48_embeddings.pkl"
+
     df = load_datum(file_name)
     print(f"After loading: Datum loads with {len(df)} words")
     df = clean_datum("gpt2-xl", df)
+    print(f"After cleaning: Datum now has {len(df)} words")
 
     # content words
     glove = api.load("glove-wiki-gigaword-50")

@@ -297,9 +297,14 @@ def plot_average_split_by_key(args, df, pdf):
         for j, split_hor_key in enumerate(args.unique_keys[args.split_hor]):
             ax = axes[i, j]
             idx = pd.IndexSlice
-            subdf = df.loc[
-                idx[:, :, :, split_hor_key, split_ver_key], :
-            ]  # need to modify
+            if args.split_ver == 2:
+                subdf = df.loc[
+                    idx[:, :, :, split_hor_key, split_ver_key], :
+                ]  # need to modify
+            elif args.split_ver == 0:
+                subdf = df.loc[
+                    idx[:, :, split_ver_key, split_hor_key, :], :
+                ]  # need to modify
             for label, subsubdf in subdf.groupby("label", axis=0):
                 vals = subsubdf.mean(axis=0)
                 err = subsubdf.sem(axis=0)
@@ -329,6 +334,7 @@ def plot_average_split_by_key(args, df, pdf):
                 ax.set_title(key[args.split_hor] + " global average")
             if j == 0:
                 ax.set_ylabel(key[args.split_ver])
+            ax.set_ylim(-0.005, 0.125)
             ax.axhline(0, ls="dashed", alpha=0.3, c="k")
             ax.axvline(0, ls="dashed", alpha=0.3, c="k")
             ax.legend(loc="upper right", frameon=False)
@@ -351,9 +357,14 @@ def plot_electrodes_split_by_key(args, df, pdf, vmin, vmax):
                 ax = axes[i, j]
                 idx = pd.IndexSlice
                 try:
-                    subsubdf = subdf.loc[
-                        idx[:, :, :, split_hor_key, split_ver_key], :
-                    ]  # need to modify
+                    if args.split_ver == 2:
+                        subsubdf = subdf.loc[
+                            idx[:, :, :, split_hor_key, split_ver_key], :
+                        ]  # need to modify
+                    elif args.split_ver == 0:
+                        subsubdf = subdf.loc[
+                            idx[:, :, split_ver_key, split_hor_key, :], :
+                        ]  # need to modify
                 except:
                     continue
                 for row, values in subsubdf.iterrows():
