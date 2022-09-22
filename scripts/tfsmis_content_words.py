@@ -53,12 +53,58 @@ def plot_hist_all(df):
 @main_timer
 def main():
 
-    file_name = "data/tfs/7170/pickles/7170_full_gpt2-xl_cnxt_1024_layer_48_embeddings.pkl"
+    sid = "798"
+    file_name = (
+        "/home/kw1166/scratch/247-encoding/data/tfs/"
+        + sid
+        + "/pickles/"
+        + sid
+        + "_full_gpt2-xl_cnxt_1024_layer_48_embeddings.pkl"
+    )
 
     df = load_datum(file_name)
     print(f"After loading: Datum loads with {len(df)} words")
-    df = clean_datum("gpt2-xl", df)
+    df = clean_datum("gpt2", df, False)
     print(f"After cleaning: Datum now has {len(df)} words")
+    df = df[~df.duplicated(subset=["word", "adjusted_onset"])]
+    print(f"Removing duplicated words. Datum now has {len(df)} words")
+    breakpoint()
+
+    # df.loc[
+    #     df.duplicated(subset=["word", "adjusted_onset"], keep=False),
+    #     (
+    #         "word",
+    #         "onset",
+    #         "adjusted_onset",
+    #         "sentence",
+    #         "token",
+    #         "conversation_name",
+    #     ),
+    # ]
+    # breakpoint()
+
+    df2 = df.loc[
+        :,
+        (
+            "index",
+            "word",
+            "production",
+            "conversation_id",
+            "conversation_name",
+            "onset",
+            "offset",
+            "adjusted_onset",
+            "adjusted_offset",
+            "top1_pred",
+            "top1_pred_prob",
+            "true_pred_prob",
+            "surprise",
+            "entropy",
+            "embeddings",
+        ),
+    ]
+    df2.to_csv(sid + "_preds.csv")
+    breakpoint()
 
     # content words
     glove = api.load("glove-wiki-gigaword-50")

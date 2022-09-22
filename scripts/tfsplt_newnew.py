@@ -120,6 +120,8 @@ def add_sid(df, elec_name_dict):
         if string.find("_") < 0 or not string[0:3].isdigit():  # no sid in front
             new_string = str(sid_name[idx]) + "_" + string  # add sid
             elec_name_dict[string] = new_string
+        else:
+            elec_name_dict[string] = string
     return elec_name_dict
 
 

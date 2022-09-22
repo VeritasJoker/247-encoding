@@ -346,6 +346,7 @@ def plot_average(args, df, pdf):
     ax.axhline(0, ls="dashed", alpha=0.3, c="k")
     ax.axvline(0, ls="dashed", alpha=0.3, c="k")
     ax.legend(loc="upper right", frameon=False)
+    ax.set_ylim(0 - 0.005, 0.3)  # .35
     ax.set(xlabel="Lag (s)", ylabel="Correlation (r)", title="Global average")
     pdf.savefig(fig)
     plt.close()

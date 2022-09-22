@@ -21,6 +21,7 @@ from tfsenc_utils import (
     setup_environ,
     build_XY,
     get_folds,
+    get_folds2,
     run_regression,
     write_encoding_results,
 )
@@ -234,6 +235,10 @@ def single_electrode_encoding(electrode, args, datum, stitch_index):
         print(f"{args.sid} {elec_name} No Signal")
         return (args.sid, elec_name, 0, 0)
     elif (
+        "single-conv" in args.datum_mod or args.conversation_id != 0
+    ):  # single conv
+        pass
+    elif (
         args.project_id == "tfs"
         and elec_datum.conversation_id.nunique() < args.fold_num
     ):  # num of convos less than num of folds
@@ -245,16 +250,18 @@ def single_electrode_encoding(electrode, args, datum, stitch_index):
     # Build design matrices
     X, Y = build_XY(args, elec_datum, elec_signal)
 
-    # Get folds
-    fold_cat_prod, fold_cat_comp = get_folds(
-        args, elec_datum, X, Y, args.fold_num
-    )
-
     # Split into production and comprehension
     prod_X = X[elec_datum.speaker == "Speaker1", :]
     comp_X = X[elec_datum.speaker != "Speaker1", :]
     prod_Y = Y[elec_datum.speaker == "Speaker1", :]
     comp_Y = Y[elec_datum.speaker != "Speaker1", :]
+
+    # Get folds
+    fold_cat_prod, fold_cat_comp = get_folds(
+        args, elec_datum, X, Y, "groupkfold", args.fold_num
+    )
+    # fold_cat_prod2 = get_folds2(prod_X, args.fold_num)
+    # fold_cat_comp2 = get_folds2(comp_X, args.fold_num)
 
     elec_name = str(sid) + "_" + elec_name
     print(f"{args.sid} {elec_name} Prod: {len(prod_X)} Comp: {len(comp_X)}")

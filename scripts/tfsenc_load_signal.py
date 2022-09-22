@@ -46,17 +46,17 @@ def detrend_signal(mat_signal):  # Detrending
     return mat_signal
 
 
-def detrend_signal2(mat_signal):  # Detrending
-    """Detrends a signal
+# def detrend_signal2(mat_signal):  # Detrending
+#     """Detrends a signal
 
-    Args:
-        mat_signal: signal for a specific conversation
+#     Args:
+#         mat_signal: signal for a specific conversation
 
-    Returns:
-        mat_signal: detrended signal
-    """
+#     Returns:
+#         mat_signal: detrended signal
+#     """
 
-    return mat_signal - mat_signal.mean()
+#     return mat_signal - mat_signal.mean()
 
 
 def create_nan_signal(stitch, convo_id):
@@ -126,9 +126,9 @@ def load_electrode_data(args, sid, elec_id, stitch, z_score=False):
             if mat_signal is None:
                 continue
 
-            mat_signal = detrend_signal2(
-                mat_signal
-            )  # detrend conversation signal
+            # mat_signal = detrend_signal(
+            #     mat_signal
+            # )  # detrend conversation signal
             if z_score:  # doing erp
                 mat_signal = stats.zscore(mat_signal)
 
@@ -137,9 +137,7 @@ def load_electrode_data(args, sid, elec_id, stitch, z_score=False):
                 raise SystemExit(
                     f"Error: Conversation file does not exist for electrode {elec_id} at {convo}"
                 )
-            missing_convos.append(
-                os.path.basename(convo)
-            )  # append missing convo name
+            missing_convos.append(os.path.basename(convo))  # append missing convo name
             mat_signal = create_nan_signal(stitch, convo_id)
 
         else:  # more than 1 conversation files

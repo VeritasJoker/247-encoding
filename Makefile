@@ -15,6 +15,7 @@ PRJCT_ID := tfs
 # 625 Electrode IDs
 SID := 625
 E_LIST := $(shell seq 1 105)
+E_LIST := $(shell seq 43 43)
 BC := 
 
 # 676 Electrode IDs
@@ -36,9 +37,9 @@ SIG_FN :=
 # SIG_FN := --sig-elec-file 625-mariano-prod-new-53.csv 625-mariano-comp-new-30.csv # for sig-test
 # SIG_FN := --sig-elec-file 676-mariano-prod-new-109.csv 676-mariano-comp-new-104.csv # for sig-test
 # SIG_FN := --sig-elec-file 7170-comp-sig.csv 7170-prod-sig.csv
-# SIG_FN := --sig-elec-file tfs-sig-file-676-sig-1.0-comp.csv tfs-sig-file-676-sig-1.0-prod.csv
+# SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-comp.csv tfs-sig-file-625-sig-1.0-prod.csv
 # SIG_FN := --sig-elec-file tfs-sig-file-676-max-0.1-comp.csv tfs-sig-file-676-max-0.1-prod.csv
-
+# SIG_FN := --sig-elec-file tfs-sig-file-region-parstri-prod.csv
 
 # podcast electrode IDs
 # SID := 777
@@ -80,6 +81,7 @@ LAGS := -300000 -250000 -200000 200000 250000 300000 # lag300k-50k
 LAGS := -150000 -120000 -90000 90000 120000 150000 # lag150k-30k
 LAGS := -60000 -50000 -40000 -30000 -20000 20000 30000 40000 50000 60000 # lag60k-10k
 LAGS := {-10000..10000..25} # lag10k-25
+# LAGS := {-2000..2000..25} # lag10k-25
 
 # Conversation ID (Choose 0 to run for all conversations)
 CONVERSATION_IDX := 0
@@ -88,10 +90,13 @@ CONVERSATION_IDX := 0
 # {glove50 | gpt2-xl | blenderbot-small}
 EMB := blenderbot
 EMB := blenderbot-small
-EMB := glove50
 EMB := bert-base-cased
-EMB := gpt2-xl
 EMB := gpt2-xl-bert
+EMB := gpt2-medium-bert
+EMB := bert-large-cased
+EMB := gpt2-xl
+EMB := gpt2-medium
+EMB := glove50
 CNXT_LEN := 512
 
 # Choose the window size to average for each point
@@ -99,14 +104,15 @@ WS := 200
 
 # Choose which set of embeddings to align with (intersection of embeddings)
 ALIGN_WITH := blenderbot-small
-ALIGN_WITH := gpt2-xl
 ALIGN_WITH := glove50 gpt2-xl
 ALIGN_WITH := bert-base-cased
+ALIGN_WITH := gpt2-xl
 ALIGN_WITH := glove50 gpt2-xl blenderbot-small
+ALIGN_WITH := glove50
 
 # Choose layer of embeddings to use
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
-LAYER_IDX := 48
+LAYER_IDX := 1
 
 # Choose whether to PCA (not used in encoding for now)
 # PCA_TO := 50
@@ -125,14 +131,14 @@ WV := all
 # PSH := --phase-shuffle
 
 # Choose whether to normalize the embeddings
-# NM := l2
+NM := l2
 # {l1 | l2 | max}
 
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
 CMD := echo
-CMD := python
 CMD := sbatch submit1.sh
+CMD := python
 # {echo | python | sbatch submit1.sh}
 
 # datum
@@ -168,7 +174,7 @@ actually predicted by gpt2} (only used for podcast glove)
 # DM := no-trim
 # DM := gpt2-xl-pred
 DM := lag10k-25-incorrect-shift-emb
-DM := lag10k-25-all-shift-embn1
+DM := lag10k-25-all-new-strat-flag
 
 ############## Model Modification ##############
 # {best-lag: run encoding using the best lag (lag model with highest correlation)}
@@ -222,7 +228,7 @@ run-encoding:
 		$(SH) \
 		$(PSH) \
 		--normalize $(NM)\
-		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-$(DM) \
+		--output-parent-dir matlab-compare2/$(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-$(DM) \
 		--output-prefix $(USR)-$(WS)ms-$(WV);\
 
 
@@ -411,8 +417,8 @@ LAG_TK_LABLS :=
 # Split by, if any (Choose how lines are split into plots) (Only effective when Split is not empty) (optional)
 # {  | --split-by labels | --split-by keys }
 
+PLT_PARAMS := --lc-by labels --ls-by keys --split horizontal --split-by keys # plot for prod+comp (247 plots)
 PLT_PARAMS := --lc-by labels --ls-by keys # plot for just one key (podcast plots)
-PLT_PARAMS := --lc-by labels --ls-by keys --split vertical --split-by keys # plot for prod+comp (247 plots)
 
 # Figure Size (width height)
 FIG_SZ:= 15 6
@@ -429,16 +435,14 @@ The number of sig elec files should also equal # of sid * # of keys
 plot-new:
 	rm -f results/figures/*
 	python scripts/tfsplt_new.py \
-		--sid 676 \
+		--sid 625 \
 		--formats \
-			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10k-25-all-1024-48/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10k-25-all-shift-emb-1024-48/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-bert-base-cased-lag10k-25-all/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-bert-base-cased-mask-lag10k-25-all/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-gpt2-xl-bert-lag10k-25-all/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-glove50-lag10k-25-all/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-glove50-lag10k-25-all-shift-emb/*/*_%s.csv' \
-		--labels gpt2-n-1 gpt2-n bert bert-masked gpt2-n-bert glove glove-n+1 \
+			'results/tfs/matlab-compare2/kw-tfs-full-625-glove50-lag10k-25-all-new/*/*_%s.csv' \
+			'results/tfs/matlab-compare2/kw-tfs-full-625-glove50-lag10k-25-all-new-groupkfolds-seq/*/*_%s.csv' \
+			'results/tfs/matlab-compare2/kw-tfs-full-625-glove50-lag10k-25-all-new-kfolds/*/*_%s.csv' \
+			'results/tfs/matlab-compare2/kw-tfs-full-625-glove50-lag10k-25-all-new-groupkfolds/*/*_%s.csv' \
+			'results/tfs/matlab-compare2/kw-tfs-full-625-glove50-lag10k-25-all-new-strat-flag/*/*_%s.csv' \
+		--labels python-stratgroupkfolds python-groupkfolds-seq python-kfolds python-groupkfolds python-stratgroupkfolds-flag \
 		--keys comp prod \
 		$(SIG_FN) \
 		--fig-size $(FIG_SZ) \
@@ -448,24 +452,52 @@ plot-new:
 		$(LAG_TKS) \
 		$(LAG_TK_LABLS) \
 		$(PLT_PARAMS) \
-		--outfile results/figures/tfs-676-bert-test.pdf
-	rsync -av results/figures/ ~/tigress/247-encoding-results/
+		--outfile results/figures/tfs-matlab-compare3.pdf
+	rsync -av results/figures/ ~/tigress/247-encoding-results
 
 
 plot-twosplit:
 	rm -f results/figures/*
 	python scripts/tfsplt_newnew.py \
-		--sid 676 \
+		--sid 247 \
 		--formats \
-			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10k-25-top0.5/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10k-25-top0.5/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10k-25-bot0.5/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10k-25-bot0.5/*/*_%s.csv' \
+			'results/uriplot2/data/247-glove-parstriangularis-all/*_%s.csv' \
+			'results/uriplot2/data/247-glove-parstriangularis-all/*_%s.csv' \
+			'results/uriplot2/data/247-gpt2n-parstriangularis-all/*_%s.csv' \
+			'results/uriplot2/data/247-gpt2n-parstriangularis-all/*_%s.csv' \
+			'results/uriplot2/data/247-gpt2n-1-parstriangularis-all/*_%s.csv' \
+			'results/uriplot2/data/247-gpt2n-1-parstriangularis-all/*_%s.csv' \
+			'results/uriplot2/data/247-glove-parsopercularis-all/*_%s.csv' \
+			'results/uriplot2/data/247-glove-parsopercularis-all/*_%s.csv' \
+			'results/uriplot2/data/247-gpt2n-parsopercularis-all/*_%s.csv' \
+			'results/uriplot2/data/247-gpt2n-parsopercularis-all/*_%s.csv' \
+			'results/uriplot2/data/247-gpt2n-1-parsopercularis-all/*_%s.csv' \
+			'results/uriplot2/data/247-gpt2n-1-parsopercularis-all/*_%s.csv' \
+			'results/uriplot2/data/247-glove-parsorbitalis-all/*_%s.csv' \
+			'results/uriplot2/data/247-glove-parsorbitalis-all/*_%s.csv' \
+			'results/uriplot2/data/247-gpt2n-parsorbitalis-all/*_%s.csv' \
+			'results/uriplot2/data/247-gpt2n-parsorbitalis-all/*_%s.csv' \
+			'results/uriplot2/data/247-gpt2n-1-parsorbitalis-all/*_%s.csv' \
+			'results/uriplot2/data/247-gpt2n-1-parsorbitalis-all/*_%s.csv' \
 		--keys \
-			'gpt2-n-1 comp top0.5' \
-			'gpt2-n-1 prod top0.5' \
-			'gpt2-n-1 comp bot0.5' \
-			'gpt2-n-1 prod bot0.5' \
+			'glove comp parstriangularis' \
+			'glove prod parstriangularis' \
+			'gpt2-n comp parstriangularis' \
+			'gpt2-n prod parstriangularis' \
+			'gpt2-n-1 comp parstriangularis' \
+			'gpt2-n-1 prod parstriangularis' \
+			'glove comp parsopercularis' \
+			'glove prod parsopercularis' \
+			'gpt2-n comp parsopercularis' \
+			'gpt2-n prod parsopercularis' \
+			'gpt2-n-1 comp parsopercularis' \
+			'gpt2-n-1 prod parsopercularis' \
+			'glove comp parsorbitalis' \
+			'glove prod parsorbitalis' \
+			'gpt2-n comp parsorbitalis' \
+			'gpt2-n prod parsorbitalis' \
+			'gpt2-n-1 comp parsorbitalis' \
+			'gpt2-n-1 prod parsorbitalis' \
 		$(SIG_FN) \
 		--fig-size $(FIG_SZ) \
 		--lags-plot $(LAGS_PLT) \
@@ -477,8 +509,8 @@ plot-twosplit:
 		--ls-by 1 \
 		--split-hor 1 \
 		--split-ver 2 \
-		--outfile results/figures/tfs-676-gpt2-xl_gpt2-preds2.pdf
-	rsync -av results/figures/ ~/tigress/247-encoding-results/
+		--outfile results/figures/tfs-brain-regions-allwords-allelecs.pdf
+	rsync -av results/figures/ ~/tigress/247-encoding-results/13uriplots2
 
 
 SIG_ELECS := --sig-elecs

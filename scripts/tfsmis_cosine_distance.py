@@ -118,7 +118,7 @@ def plot_word_info(df, sid):
 @main_timer
 def main():
 
-    sid = "676"
+    sid = "625"
     file_name = (
         "data/tfs/"
         + sid
@@ -128,7 +128,7 @@ def main():
     )
     df = load_datum(file_name)
     print(f"After loading: Datum loads with {len(df)} words")
-    df = clean_datum("gpt2-xl", df)
+    df = clean_datum("gpt2-xl", df, False)
     df = run_pca(df)
 
     # df = add_cosine_info(df)

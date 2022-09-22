@@ -151,20 +151,23 @@ def normalize_embeddings(args, df):
     return df
 
 
-def clean_datum(emb_type, df):
+def clean_datum(emb_type, df, token2word=True):
 
     df.loc[:, "word"] = df.word.str.lower().str.strip(string.punctuation)
 
     if emb_type == "glove50":
         df = df.dropna(subset=["embeddings"])
     else:
-        df = drop_nan_embeddings(df)
+        # df = drop_nan_embeddings(df) # the same as L164
         df = remove_punctuation(df)
-
     nans = df.embeddings.apply(lambda x: np.isnan(x).any())
     notnon = df.is_nonword == 0
-    if "glove" not in emb_type:
+    if "glove" not in emb_type and token2word:
         same = df.token2word.str.lower().str.strip() == df.word
+        df = df[same & ~nans & notnon]
+    elif emb_type == "gpt2":
+        same = df["in_" + emb_type]
+        same = same & df["gpt2-xl_token_is_root"]
         df = df[same & ~nans & notnon]
     else:
         df = df[~nans & notnon]
@@ -280,6 +283,10 @@ def process_datum(args, df, stitch):
         print("Normalizing embeddings")
         df = normalize_embeddings(args, df)
 
+    # df = df[
+    #     ~df.duplicated(subset=["word", "adjusted_onset"])
+    # ]  # remove duplicates
+
     return df
 
 
@@ -305,6 +312,8 @@ def filter_datum(args, df):
         common = df.in_blenderbot_3B
     elif "bert-base-cased" in args.emb_type.lower():
         common = df.in_bert_base_cased
+    elif "bert-large" in args.emb_type.lower():
+        common = df.in_bert_base_cased
 
     for model in args.align_with:  # filter based on align with arguments
         if "glove" in model:
@@ -315,7 +324,9 @@ def filter_datum(args, df):
             common = common & df.in_blenderbot_small_90M
         elif "blenderbot" in model:
             common = common & df.in_blenderbot_3B
-        elif "bert-base_cased" in model:
+        elif "bert-base-cased" in model:
+            common = common & df.in_bert_base_cased
+        elif "bert-large-uncased" in model:
             common = common & df.in_bert_base_cased
 
     if args.exclude_nonwords:  # filter based on exclude_nonwords argument
@@ -461,7 +472,9 @@ def shift_emb(args, datum):
     before_shift_num = len(datum.index)
     for i in np.arange(shift_num):
         datum["embeddings"] = datum.embeddings.shift(step)
-        datum = datum[datum.conversation_id.shift(step) == datum.conversation_id]
+        datum = datum[
+            datum.conversation_id.shift(step) == datum.conversation_id
+        ]
         if (
             "blenderbot-small" in args.emb_type.lower()
             or "bert" in args.emb_type.lower()
@@ -514,15 +527,18 @@ def mod_datum(args, datum):
     Returns:
         DataFrame: further filtered datum
     """
-    if args.conversation_id:  # picking single conversation
-        datum = datum[datum.conversation_id == args.conversation_id]
-        datum.convo_offset = datum["convo_offset"] - datum["convo_onset"]
-        datum.convo_onset = 0
-
     if "no-trim" in args.datum_mod:  # no need for edge trimming
         pass
     else:
         datum = trim_datum(args, datum)  # trim edges
+
+    if args.conversation_id:  # picking single conversation
+        datum = datum[datum.conversation_id == args.conversation_id]
+        datum.convo_offset = datum["convo_offset"] - datum["convo_onset"]
+        datum.convo_onset = 0
+        print(
+            f"Running conversation {args.conversation_id} with {len(datum)} words"
+        )
 
     if "zeroshot" in args.datum_mod:  # zeroshot datum
         datum = clean_datum(args.emb_type, datum)

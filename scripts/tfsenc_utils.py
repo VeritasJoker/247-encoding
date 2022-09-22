@@ -3,12 +3,13 @@ from imp import C_EXTENSION
 import os
 from functools import partial
 from multiprocessing import Pool
+from random import shuffle
 
 import mat73
 import numpy as np
 from numba import jit, prange
 from scipy import stats
-from sklearn.model_selection import KFold, GroupKFold
+from sklearn.model_selection import KFold, StratifiedGroupKFold, GroupKFold
 from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.decomposition import PCA
@@ -44,67 +45,6 @@ def encColCorr(CA, CB):
     return r, p, t
 
 
-def cv_lm_003(X, Y, folds, fold_num, lag):
-    """Cross-validated predictions from a regression model using sequential
-        block partitions with nuisance regressors included in the training
-        folds
-
-    Args:
-        X ([type]): [description]
-        Y ([type]): [description]
-        kfolds ([type]): [description]
-
-    Returns:
-        [type]: [description]
-    """
-    if lag == -1:
-        print("running normal encoding")
-    else:
-        print("running best-lag")
-
-    # Data size
-    nSamps = X.shape[0]
-    nChans = Y.shape[1] if Y.shape[1:] else 1
-
-    YHAT = np.zeros((nSamps, nChans))
-
-    # Go through each fold, and split
-    for i in range(0, fold_num):
-        # Shift the number of folds for this iteration
-        # [0 1 2 3 4] -> [1 2 3 4 0] -> [2 3 4 0 1]
-        #                       ^ dev fold
-        #                         ^ test fold
-        #                 | - | <- train folds
-
-        # Extract each set out of the big matricies
-        Xtra, Xtes = X[folds == i], X[folds != i]
-        Ytra, Ytes = Y[folds == i], Y[folds != i]
-
-        # Mean-center
-        Xtra -= np.mean(Xtra, axis=0)
-        Xtes -= np.mean(Xtes, axis=0)
-        Ytra -= np.mean(Ytra, axis=0)
-        Ytes -= np.mean(Ytes, axis=0)
-
-        # Fit model
-        model = make_pipeline(PCA(50, whiten=True), LinearRegression())
-        model.fit(Xtra, Ytra)
-
-        if lag != -1:  # best-lag model
-            B = model.named_steps["linearregression"].coef_
-            assert lag < B.shape[0], f"Lag index out of range"
-            B = np.repeat(B[lag, :][np.newaxis, :], B.shape[0], 0)
-            model.named_steps["linearregression"].coef_ = B
-
-        # Predict
-        foldYhat = model.predict(Xtes)
-
-        # Add to data matrices
-        YHAT[folds != i, :] = foldYhat.reshape(-1, nChans)
-
-    return YHAT
-
-
 def cv_lm_003_prod_comp(
     Xtra, Ytra, fold_tra, Xtes, fold_tes, fold_num, lag, do_pca
 ):
@@ -112,6 +52,8 @@ def cv_lm_003_prod_comp(
         print("running regression")
     else:
         print("running regression with best_lag")
+    if not do_pca:
+        print("No PCA")
 
     nSamps = Xtes.shape[0]
     nChans = Ytra.shape[1] if Ytra.shape[1:] else 1
@@ -119,8 +61,8 @@ def cv_lm_003_prod_comp(
     YHAT = np.zeros((nSamps, nChans))
 
     for i in range(0, fold_num):
-        Xtraf, Xtesf = Xtra[fold_tra == i], Xtes[fold_tes != i]
-        Ytraf = Ytra[fold_tra == i]
+        Xtraf, Xtesf = Xtra[fold_tra != i], Xtes[fold_tes == i]
+        Ytraf = Ytra[fold_tra != i]
 
         Xtraf -= np.mean(Xtra, axis=0)
         Xtesf -= np.mean(Xtes, axis=0)
@@ -150,8 +92,7 @@ def cv_lm_003_prod_comp(
         # Predict
         foldYhat = model.predict(Xtesf)
         # foldYhat = Xtesf @ B
-
-        YHAT[fold_tes != i, :] = foldYhat.reshape(-1, nChans)
+        YHAT[fold_tes == i, :] = foldYhat.reshape(-1, nChans)
 
     return YHAT
 
@@ -198,7 +139,6 @@ def build_Y(
                 np.round_(onsets, 0, onsets) + lag_amount,
             ),
         )
-
         # index_onsets = np.round_(onsets, 0, onsets) + lag_amount
 
         # subtracting 1 from starts to account for 0-indexing
@@ -207,7 +147,6 @@ def build_Y(
 
         # vec = brain_signal[np.array(
         #     [np.arange(*item) for item in zip(starts, stops)])]
-
         for i, (start, stop) in enumerate(zip(starts, stops)):
             Y1[i, lag] = np.mean(brain_signal[start:stop].reshape(-1))
 
@@ -279,6 +218,7 @@ def encoding_mp_prod_comp(
         PY_hat = cv_lm_003_prod_comp(
             Xtra, Ytra, fold_tra, Xtes, fold_tes, args.fold_num, lag, True
         )
+    Ytes -= np.mean(Ytes, axis=0)
     rp, _, _ = encColCorr(Ytes, PY_hat)
 
     return rp
@@ -437,23 +377,65 @@ def encoding_regression_pr(args, datum, elec_signal, name):
     return (prod_corr, comp_corr)
 
 
-def get_folds(args, datum, X, Y, fold_num=5):
+def get_folds(args, datum, X, Y, type="groupkfold", fold_num=10):
+    print(type)
+    fold_cat = np.zeros(datum.shape[0])
     if (
-        args.project_id != "tfs" or "single-conv" in args.datum_mod
+        args.project_id != "tfs"
+        or "single-conv" in args.datum_mod
+        or args.conversation_id
     ):  # single conversation (kfolds)
         skf = KFold(n_splits=fold_num, shuffle=False)
         folds = [t[1] for t in skf.split(np.arange(X.shape[0]))]
-    else:  # multiple conversations (groupkfolds)
+    elif type == "groupkfold":  # multiple conversations
         grpkfold = GroupKFold(n_splits=fold_num)
-        folds = [t[1] for t in grpkfold.split(X, Y, datum["conversation_id"])]
-    fold_cat = np.zeros(datum.shape[0])
+        folds = [
+            t[1]
+            for t in grpkfold.split(X, None, groups=datum["conversation_id"])
+        ]
+    elif type == "stratgroupkfold":  # keep class percentage
+        grpkfold = StratifiedGroupKFold(n_splits=fold_num, shuffle=False)
+        folds = [
+            t[1]
+            for t in grpkfold.split(
+                X, datum["production"], datum["conversation_id"]
+            )
+        ]
+    elif type == "stratgroupkfold-total":  # keep sample percentage
+        grpkfold = StratifiedGroupKFold(n_splits=fold_num, shuffle=False)
+        datum["flag"] = 1
+        folds = [
+            t[1]
+            for t in grpkfold.split(X, datum["flag"], datum["conversation_id"])
+        ]
+    elif type == "groupkfold-seq":  # groupkfolds and sequential
+        grpkfold = KFold(n_splits=fold_num, shuffle=False)
+        folds = [t[1] for t in grpkfold.split(datum.conversation_id.unique())]
+        fold_cat = np.zeros(len(datum.conversation_id.unique()))
+
     for i in range(0, len(folds)):
         for row in folds[i]:
             fold_cat[row] = i  # turns into fold category
+
+    if type == "groupkfold-seq":
+        fold_cat = (
+            datum["conversation_id"].map(lambda x: fold_cat[x - 1]).values
+        )
+
     fold_cat_prod = fold_cat[datum.speaker == "Speaker1"]
     fold_cat_comp = fold_cat[datum.speaker != "Speaker1"]
 
     return (fold_cat_prod, fold_cat_comp)
+
+
+def get_folds2(X, fold_num=10):
+    skf = KFold(n_splits=fold_num, shuffle=False)
+    folds = [t[1] for t in skf.split(np.arange(X.shape[0]))]
+    fold_cat = np.zeros(X.shape[0])
+    for i in range(0, len(folds)):
+        for row in folds[i]:
+            fold_cat[row] = i  # turns into fold category
+    return fold_cat
 
 
 def write_encoding_results(args, cor_results, elec_name, mode):
