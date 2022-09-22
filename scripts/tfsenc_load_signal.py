@@ -95,8 +95,9 @@ def load_electrode_data(args, sid, elec_id, stitch, z_score=False):
         DATA_DIR = "/projects/HASSON/247/data/conversations-car"
         process_flag = "preprocessed"
         if args.sid == 7170:
-            process_flag = "preprocessed_v2"
-        # process_flag = 'preprocessed_allElec' # all electrodes all convo for 7170
+            process_flag = "preprocessed_v2"  # second version of 7170
+        if args.sid == 798:
+            process_flag = "preprocessed_allElec"  # all electrodes all convo
     elif args.project_id == "podcast":
         DATA_DIR = "/projects/HASSON/247/data/podcast-data"
         process_flag = "preprocessed_all"

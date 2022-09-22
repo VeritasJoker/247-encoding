@@ -15,7 +15,7 @@ PRJCT_ID := tfs
 # 625 Electrode IDs
 SID := 625
 E_LIST := $(shell seq 1 105)
-E_LIST := $(shell seq 43 43)
+# E_LIST := $(shell seq 43 43)
 BC := 
 
 # 676 Electrode IDs
@@ -27,6 +27,11 @@ BC :=
 # SID := 7170
 # E_LIST := $(shell seq 1 256)
 # BC :=
+
+# 798 Electrode IDs
+SID := 798
+E_LIST := $(shell seq 1 192)
+BC :=
 
 # Sig file will override whatever electrodes you choose
 SIG_FN := 
@@ -94,10 +99,10 @@ EMB := bert-base-cased
 EMB := gpt2-xl-bert
 EMB := gpt2-medium-bert
 EMB := bert-large-cased
-EMB := gpt2-xl
 EMB := gpt2-medium
+EMB := gpt2-xl
 EMB := glove50
-CNXT_LEN := 512
+CNXT_LEN := 1024
 
 # Choose the window size to average for each point
 WS := 200
@@ -107,8 +112,8 @@ ALIGN_WITH := blenderbot-small
 ALIGN_WITH := glove50 gpt2-xl
 ALIGN_WITH := bert-base-cased
 ALIGN_WITH := gpt2-xl
-ALIGN_WITH := glove50 gpt2-xl blenderbot-small
 ALIGN_WITH := glove50
+ALIGN_WITH := glove50 gpt2-xl blenderbot-small
 
 # Choose layer of embeddings to use
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
@@ -137,8 +142,8 @@ NM := l2
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
 CMD := echo
-CMD := sbatch submit1.sh
 CMD := python
+CMD := sbatch submit1.sh
 # {echo | python | sbatch submit1.sh}
 
 # datum
@@ -174,7 +179,7 @@ actually predicted by gpt2} (only used for podcast glove)
 # DM := no-trim
 # DM := gpt2-xl-pred
 DM := lag10k-25-incorrect-shift-emb
-DM := lag10k-25-all-new-strat-flag
+DM := lag10k-25-all
 
 ############## Model Modification ##############
 # {best-lag: run encoding using the best lag (lag model with highest correlation)}
@@ -228,7 +233,7 @@ run-encoding:
 		$(SH) \
 		$(PSH) \
 		--normalize $(NM)\
-		--output-parent-dir matlab-compare2/$(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-$(DM) \
+		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-$(DM) \
 		--output-prefix $(USR)-$(WS)ms-$(WV);\
 
 

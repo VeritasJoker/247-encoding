@@ -104,9 +104,7 @@ def process_subjects(args):
         )
         assert len(sig_elec_list) == len(sid_sig_elec_list), "Sig Elecs Missing"
         electrode_info = {
-            (values["subject"], values["electrode_id"]): values[
-                "electrode_name"
-            ]
+            (values["subject"], values["electrode_id"]): values["electrode_name"]
             for _, values in sid_sig_elec_list.iterrows()
         }
 
@@ -116,8 +114,7 @@ def process_subjects(args):
             (args.sid, key): next(
                 iter(
                     df.loc[
-                        (df.subject == str(args.sid))
-                        & (df.electrode_id == key),
+                        (df.subject == str(args.sid)) & (df.electrode_id == key),
                         "electrode_name",
                     ]
                 ),
@@ -234,17 +231,13 @@ def single_electrode_encoding(electrode, args, datum, stitch_index):
     if len(elec_datum) == 0:  # datum has no words, meaning no signal
         print(f"{args.sid} {elec_name} No Signal")
         return (args.sid, elec_name, 0, 0)
-    elif (
-        "single-conv" in args.datum_mod or args.conversation_id != 0
-    ):  # single conv
+    elif "single-conv" in args.datum_mod or args.conversation_id != 0:  # single conv
         pass
     elif (
         args.project_id == "tfs"
         and elec_datum.conversation_id.nunique() < args.fold_num
     ):  # num of convos less than num of folds
-        print(
-            f"{args.sid} {elec_name} has less conversations than the number of folds"
-        )
+        print(f"{args.sid} {elec_name} has less conversations than the number of folds")
         return (args.sid, elec_name, 1, 1)
 
     # Build design matrices
@@ -256,12 +249,15 @@ def single_electrode_encoding(electrode, args, datum, stitch_index):
     prod_Y = Y[elec_datum.speaker == "Speaker1", :]
     comp_Y = Y[elec_datum.speaker != "Speaker1", :]
 
-    # Get folds
-    fold_cat_prod, fold_cat_comp = get_folds(
-        args, elec_datum, X, Y, "groupkfold", args.fold_num
-    )
-    # fold_cat_prod2 = get_folds2(prod_X, args.fold_num)
-    # fold_cat_comp2 = get_folds2(comp_X, args.fold_num)
+    if args.sid == 798:  # HACK: need to redo all folds
+        fold_cat_prod = get_folds2(prod_X, args.fold_num)
+        fold_cat_comp = get_folds2(comp_X, args.fold_num)
+
+    else:
+        # Get folds
+        fold_cat_prod, fold_cat_comp = get_folds(
+            args, elec_datum, X, Y, "groupkfold", args.fold_num
+        )
 
     elec_name = str(sid) + "_" + elec_name
     print(f"{args.sid} {elec_name} Prod: {len(prod_X)} Comp: {len(comp_X)}")
@@ -325,9 +321,7 @@ def parallel_encoding(args, electrode_info, datum, stitch_index, parallel=True):
         parallel = False
     if parallel:
         print("Running all electrodes in parallel")
-        summary_file = os.path.join(
-            args.full_output_dir, "summary.csv"
-        )  # summary file
+        summary_file = os.path.join(args.full_output_dir, "summary.csv")  # summary file
         p = Pool(4)  # multiprocessing
         with open(summary_file, "w") as f:
             writer = csv.writer(f, delimiter=",", lineterminator="\r\n")
