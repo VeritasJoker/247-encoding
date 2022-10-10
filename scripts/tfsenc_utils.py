@@ -45,7 +45,9 @@ def encColCorr(CA, CB):
     return r, p, t
 
 
-def cv_lm_003_prod_comp(Xtra, Ytra, fold_tra, Xtes, fold_tes, fold_num, lag, do_pca):
+def cv_lm_003_prod_comp(
+    Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, fold_num, lag, do_pca
+):
     if lag == -1:
         print("running regression")
     else:
@@ -57,27 +59,34 @@ def cv_lm_003_prod_comp(Xtra, Ytra, fold_tra, Xtes, fold_tes, fold_num, lag, do_
     nChans = Ytra.shape[1] if Ytra.shape[1:] else 1
 
     YHAT = np.zeros((nSamps, nChans))
+    Ynew = np.zeros((nSamps, nChans))
 
     for i in range(0, fold_num):
         Xtraf, Xtesf = Xtra[fold_tra != i], Xtes[fold_tes == i]
-        Ytraf = Ytra[fold_tra != i]
+        Ytraf, Ytesf = Ytra[fold_tra != i], Ytes[fold_tes == i]
 
         Xtraf -= np.mean(Xtra, axis=0)
         Xtesf -= np.mean(Xtes, axis=0)
         Ytraf -= np.mean(Ytra, axis=0)
+        Ytesf -= np.mean(Ytes, axis=0)
 
         # Fit model
-        if do_pca:  # HACK
+        if do_pca:  # HACK: PCA dimensions
             model = make_pipeline(PCA(50, whiten=True), LinearRegression())
         else:
-            model = make_pipeline(LinearRegression())
+            model = make_pipeline(LinearRegression(fit_intercept=False))
         model.fit(Xtraf, Ytraf)
         # B = np.linalg.pinv(Xtraf) @ Ytraf
+        # B = np.dot(
+        #     np.linalg.inv(np.dot(Xtraf.T, Xtraf)), np.dot(Xtraf.T, Ytraf)
+        # )
 
         if lag != -1:
             B = model.named_steps["linearregression"].coef_
             assert lag < B.shape[0], f"Lag index out of range"
-            B = np.repeat(B[lag, :][np.newaxis, :], B.shape[0], 0)  # best-lag model
+            B = np.repeat(
+                B[lag, :][np.newaxis, :], B.shape[0], 0
+            )  # best-lag model
             model.named_steps["linearregression"].coef_ = B
 
             # old best-lag model
@@ -88,9 +97,11 @@ def cv_lm_003_prod_comp(Xtra, Ytra, fold_tra, Xtes, fold_tes, fold_num, lag, do_
         # Predict
         foldYhat = model.predict(Xtesf)
         # foldYhat = Xtesf @ B
-        YHAT[fold_tes == i, :] = foldYhat.reshape(-1, nChans)
+        # foldYhat = np.dot(Xtesf, B)
 
-    return YHAT
+        Ynew[fold_tes == i, :] = Ytesf.reshape(-1, nChans)
+        YHAT[fold_tes == i, :] = foldYhat.reshape(-1, nChans)
+    return (YHAT, Ynew)
 
 
 # @jit(nopython=True)
@@ -105,7 +116,9 @@ def cv_lm_003_prod_comp(Xtra, Ytra, fold_tra, Xtes, fold_tes, fold_num, lag, do_
 
 
 @jit(nopython=True)
-def build_Y(onsets, convo_onsets, convo_offsets, brain_signal, lags, window_size):
+def build_Y(
+    onsets, convo_onsets, convo_offsets, brain_signal, lags, window_size
+):
     """[summary]
 
     Args:
@@ -196,22 +209,39 @@ def build_XY(args, datum, brain_signal):
 #     return rp
 
 
-def encoding_mp_prod_comp(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, lag):
+def encoding_mp_prod_comp(
+    args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, lag
+):
     if args.shuffle:
         np.random.shuffle(Ytra)
         np.random.shuffle(Ytes)
 
-    if "onehot" in args.datum_mod and "nopca" in args.datum_mod:
-        print("Onehot and no PCA")
-        PY_hat = cv_lm_003_prod_comp(
-            Xtra, Ytra, fold_tra, Xtes, fold_tes, args.fold_num, lag, False
+    if "nopca" in args.datum_mod:
+        PY_hat, Y_new = cv_lm_003_prod_comp(
+            Xtra,
+            Ytra,
+            fold_tra,
+            Xtes,
+            Ytes,
+            fold_tes,
+            args.fold_num,
+            lag,
+            False,
         )
     else:
-        PY_hat = cv_lm_003_prod_comp(
-            Xtra, Ytra, fold_tra, Xtes, fold_tes, args.fold_num, lag, True
+        PY_hat, Y_new = cv_lm_003_prod_comp(
+            Xtra,
+            Ytra,
+            fold_tra,
+            Xtes,
+            Ytes,
+            fold_tes,
+            args.fold_num,
+            lag,
+            True,
         )
-    Ytes -= np.mean(Ytes, axis=0)
-    rp, _, _ = encColCorr(Ytes, PY_hat)
+    # Ytes -= np.mean(Ytes, axis=0)
+    rp, _, _ = encColCorr(Y_new, PY_hat)
 
     return rp
 
@@ -248,7 +278,6 @@ def run_regression(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes):
             )
         else:
             perm_prod.append(result)
-
     return perm_prod
 
 
@@ -377,20 +406,25 @@ def get_folds(args, datum, X, Y, type="groupkfold", fold_num=10):
         folds = [t[1] for t in skf.split(np.arange(X.shape[0]))]
     elif type == "groupkfold":  # multiple conversations
         grpkfold = GroupKFold(n_splits=fold_num)
-        folds = [t[1] for t in grpkfold.split(X, None, groups=datum["conversation_id"])]
+        folds = [
+            t[1] for t in grpkfold.split(X, Y, groups=datum["conversation_id"])
+        ]
     elif type == "stratgroupkfold":  # keep class percentage
         grpkfold = StratifiedGroupKFold(n_splits=fold_num, shuffle=False)
         folds = [
             t[1]
-            for t in grpkfold.split(X, datum["production"], datum["conversation_id"])
+            for t in grpkfold.split(
+                X, datum["production"], datum["conversation_id"]
+            )
         ]
     elif type == "stratgroupkfold-total":  # keep sample percentage
         grpkfold = StratifiedGroupKFold(n_splits=fold_num, shuffle=False)
         datum["flag"] = 1
         folds = [
-            t[1] for t in grpkfold.split(X, datum["flag"], datum["conversation_id"])
+            t[1]
+            for t in grpkfold.split(X, datum["flag"], datum["conversation_id"])
         ]
-    elif type == "groupkfold-seq":  # groupkfolds and sequential
+    elif type == "groupkfold-seq":  # sequential groupkfolds
         grpkfold = KFold(n_splits=fold_num, shuffle=False)
         folds = [t[1] for t in grpkfold.split(datum.conversation_id.unique())]
         fold_cat = np.zeros(len(datum.conversation_id.unique()))
@@ -400,7 +434,9 @@ def get_folds(args, datum, X, Y, type="groupkfold", fold_num=10):
             fold_cat[row] = i  # turns into fold category
 
     if type == "groupkfold-seq":
-        fold_cat = datum["conversation_id"].map(lambda x: fold_cat[x - 1]).values
+        fold_cat = (
+            datum["conversation_id"].map(lambda x: fold_cat[x - 1]).values
+        )
 
     fold_cat_prod = fold_cat[datum.speaker == "Speaker1"]
     fold_cat_comp = fold_cat[datum.speaker != "Speaker1"]
@@ -432,7 +468,9 @@ def write_encoding_results(args, cor_results, elec_name, mode):
         None
     """
     trial_str = append_jobid_to_string(args, mode)
-    filename = os.path.join(args.full_output_dir, elec_name + trial_str + ".csv")
+    filename = os.path.join(
+        args.full_output_dir, elec_name + trial_str + ".csv"
+    )
 
     with open(filename, "w") as csvfile:
         print("writing file")
@@ -498,7 +536,9 @@ def setup_environ(args):
     )
     args.load_emb_file = args.emb_file.replace("__", "_")
 
-    args.signal_file = "_".join([str(args.sid), args.pkl_identifier, "signal.pkl"])
+    args.signal_file = "_".join(
+        [str(args.sid), args.pkl_identifier, "signal.pkl"]
+    )
     args.electrode_file = "_".join([str(args.sid), "electrode_names.pkl"])
     args.stitch_file = "_".join(
         [str(args.sid), args.pkl_identifier, "stitch_index.pkl"]

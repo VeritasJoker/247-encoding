@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.backends.backend_pdf import PdfPages
 
-# TODO: this file is work in progress
+# this file is work in progress
 plt.rcParams.update({"text.usetex": True})
 
 

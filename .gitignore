@@ -11,4 +11,4 @@ results/*
 !.gitkeep
 .vscode
 .cache
-
+.DS_Store

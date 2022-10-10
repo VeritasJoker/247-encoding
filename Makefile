@@ -14,8 +14,8 @@ PRJCT_ID := tfs
 ############## tfs electrode ids ##############
 # 625 Electrode IDs
 SID := 625
+E_LIST := $(shell seq 15 15)
 E_LIST := $(shell seq 1 105)
-# E_LIST := $(shell seq 43 43)
 BC := 
 
 # 676 Electrode IDs
@@ -29,9 +29,10 @@ BC :=
 # BC :=
 
 # 798 Electrode IDs
-SID := 798
-E_LIST := $(shell seq 1 192)
-BC :=
+# SID := 798
+# # E_LIST := $(shell seq 17 17)
+# E_LIST := $(shell seq 1 192)
+# BC :=
 
 # Sig file will override whatever electrodes you choose
 SIG_FN := 
@@ -42,7 +43,7 @@ SIG_FN :=
 # SIG_FN := --sig-elec-file 625-mariano-prod-new-53.csv 625-mariano-comp-new-30.csv # for sig-test
 # SIG_FN := --sig-elec-file 676-mariano-prod-new-109.csv 676-mariano-comp-new-104.csv # for sig-test
 # SIG_FN := --sig-elec-file 7170-comp-sig.csv 7170-prod-sig.csv
-# SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-comp.csv tfs-sig-file-625-sig-1.0-prod.csv
+# SIG_FN := --sig-elec-file tfs-sig-file-676-sig-1.0-comp.csv tfs-sig-file-676-sig-1.0-prod.csv
 # SIG_FN := --sig-elec-file tfs-sig-file-676-max-0.1-comp.csv tfs-sig-file-676-max-0.1-prod.csv
 # SIG_FN := --sig-elec-file tfs-sig-file-region-parstri-prod.csv
 
@@ -86,7 +87,7 @@ LAGS := -300000 -250000 -200000 200000 250000 300000 # lag300k-50k
 LAGS := -150000 -120000 -90000 90000 120000 150000 # lag150k-30k
 LAGS := -60000 -50000 -40000 -30000 -20000 20000 30000 40000 50000 60000 # lag60k-10k
 LAGS := {-10000..10000..25} # lag10k-25
-# LAGS := {-2000..2000..25} # lag10k-25
+LAGS := {-2000..2000..25} # lag2k-25
 
 # Conversation ID (Choose 0 to run for all conversations)
 CONVERSATION_IDX := 0
@@ -94,26 +95,26 @@ CONVERSATION_IDX := 0
 # Choose which set of embeddings to use
 # {glove50 | gpt2-xl | blenderbot-small}
 EMB := blenderbot
-EMB := blenderbot-small
 EMB := bert-base-cased
 EMB := gpt2-xl-bert
-EMB := gpt2-medium-bert
-EMB := bert-large-cased
+EMB := bert-large-uncased
 EMB := gpt2-medium
+EMB := gpt2-medium-bert
+EMB := blenderbot-small
 EMB := gpt2-xl
 EMB := glove50
-CNXT_LEN := 1024
+CNXT_LEN := 512
 
 # Choose the window size to average for each point
 WS := 200
 
 # Choose which set of embeddings to align with (intersection of embeddings)
+ALIGN_WITH := glove50 gpt2-xl blenderbot-small
+ALIGN_WITH := bert-large-uncased
 ALIGN_WITH := blenderbot-small
 ALIGN_WITH := glove50 gpt2-xl
-ALIGN_WITH := bert-base-cased
 ALIGN_WITH := gpt2-xl
 ALIGN_WITH := glove50
-ALIGN_WITH := glove50 gpt2-xl blenderbot-small
 
 # Choose layer of embeddings to use
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
@@ -179,7 +180,7 @@ actually predicted by gpt2} (only used for podcast glove)
 # DM := no-trim
 # DM := gpt2-xl-pred
 DM := lag10k-25-incorrect-shift-emb
-DM := lag10k-25-all
+DM := lag2k-25-all-test
 
 ############## Model Modification ##############
 # {best-lag: run encoding using the best lag (lag model with highest correlation)}
@@ -265,7 +266,7 @@ run-encoding-layers:
 				$(SH) \
 				$(PSH) \
 				--normalize $(NM)\
-				--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-$(DM)-1024-$$layer \
+				--output-parent-dir matlab-compare/$(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-$(DM)-$$context-$$layer \
 				--output-prefix $(USR)-$(WS)ms-$(WV);\
 		done; \
 	done;
@@ -422,8 +423,8 @@ LAG_TK_LABLS :=
 # Split by, if any (Choose how lines are split into plots) (Only effective when Split is not empty) (optional)
 # {  | --split-by labels | --split-by keys }
 
-PLT_PARAMS := --lc-by labels --ls-by keys --split horizontal --split-by keys # plot for prod+comp (247 plots)
 PLT_PARAMS := --lc-by labels --ls-by keys # plot for just one key (podcast plots)
+PLT_PARAMS := --lc-by labels --ls-by keys --split horizontal --split-by keys # plot for prod+comp (247 plots)
 
 # Figure Size (width height)
 FIG_SZ:= 15 6
@@ -442,12 +443,12 @@ plot-new:
 	python scripts/tfsplt_new.py \
 		--sid 625 \
 		--formats \
-			'results/tfs/matlab-compare2/kw-tfs-full-625-glove50-lag10k-25-all-new/*/*_%s.csv' \
-			'results/tfs/matlab-compare2/kw-tfs-full-625-glove50-lag10k-25-all-new-groupkfolds-seq/*/*_%s.csv' \
-			'results/tfs/matlab-compare2/kw-tfs-full-625-glove50-lag10k-25-all-new-kfolds/*/*_%s.csv' \
-			'results/tfs/matlab-compare2/kw-tfs-full-625-glove50-lag10k-25-all-new-groupkfolds/*/*_%s.csv' \
-			'results/tfs/matlab-compare2/kw-tfs-full-625-glove50-lag10k-25-all-new-strat-flag/*/*_%s.csv' \
-		--labels python-stratgroupkfolds python-groupkfolds-seq python-kfolds python-groupkfolds python-stratgroupkfolds-flag \
+			'results/tfs/kw-tfs-full-625-glove50-lag2k-25-all/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-625-glove50-lag2k-25-all-ytes/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-625-glove50-lag2k-25-all-ytes-yint/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-625-glove50-lag2k-25-all-yint/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-625-glove50-lag2k-25-all-test/*/*_%s.csv' \
+		--labels python python-ytes python-ytes-yint python-yint python-test \
 		--keys comp prod \
 		$(SIG_FN) \
 		--fig-size $(FIG_SZ) \
@@ -457,7 +458,7 @@ plot-new:
 		$(LAG_TKS) \
 		$(LAG_TK_LABLS) \
 		$(PLT_PARAMS) \
-		--outfile results/figures/tfs-matlab-compare3.pdf
+		--outfile results/figures/tfs-625-python-lm-compare.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results
 
 

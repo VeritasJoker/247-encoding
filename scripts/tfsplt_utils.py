@@ -25,7 +25,7 @@ def read_sig_file(filename, old_results=False):
 def read_file(file_name, sigelecs, sigelecs_key, load_sid, label, mode, type):
 
     elec = os.path.basename(file_name).replace(".csv", "")[:-5]
-    if ( # Skip electrodes if they're not part of the sig list
+    if (  # Skip electrodes if they're not part of the sig list
         len(sigelecs)
         and elec not in sigelecs[sigelecs_key]
         and "whole_brain" not in sigelecs_key
@@ -43,6 +43,30 @@ def read_file(file_name, sigelecs, sigelecs_key, load_sid, label, mode, type):
     df.insert(0, "type", type)
 
     return df
+
+
+def read_folder2(
+    data,
+    fname,
+    load_sid="load_sid",
+    label="label",
+    mode="mode",
+    type="all",
+):
+    files = glob.glob(fname)
+    assert len(files) == 1, f"No files or multiple files found"
+    df = pd.read_csv(files[0], header=None)
+    df = df.dropna(axis=1)
+    df.columns = np.arange(-1, 161)
+    df = df.rename({-1: "electrode"}, axis=1)
+    df.insert(1, "sid", load_sid)
+    df.insert(1, "mode", mode)
+    df.insert(0, "label", label)
+    df.insert(0, "type", type)
+    df.electrode = df.sid.astype(str) + "_" + df.electrode
+    for i in np.arange(len(df)):
+        data.append(df.iloc[[i]])
+    return data
 
 
 def read_folder(

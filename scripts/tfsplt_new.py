@@ -1,6 +1,7 @@
 import glob
 import argparse
 import os
+from re import L
 import pandas as pd
 import itertools
 import numpy as np
@@ -11,7 +12,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
-from tfsplt_utils import read_sig_file, read_folder
+from tfsplt_utils import read_sig_file, read_folder, read_folder2
 from utils import main_timer
 
 
@@ -242,17 +243,20 @@ def aggregate_data(args, sigelecs, parallel=True):
         ), f"Need subject id for format {fmt}"  # check subject id for format is provided
         for key in args.keys:
             fname = fmt % key
-            data = read_folder(
-                data,
-                fname,
-                sigelecs,
-                (load_sid, key),
-                load_sid,
-                label,
-                key,
-                "all",
-                parallel,
-            )
+            if "/matlab-" in fmt:
+                data = read_folder2(data, fname, load_sid, label, key, "all")
+            else:
+                data = read_folder(
+                    data,
+                    fname,
+                    sigelecs,
+                    (load_sid, key),
+                    load_sid,
+                    label,
+                    key,
+                    "all",
+                    parallel,
+                )
     if not len(data):
         print("No data found")
         exit(1)
