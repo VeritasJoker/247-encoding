@@ -269,3 +269,22 @@ def append_jobid_to_string(args, speech_str):
         trial_str = speech_str
 
     return trial_str
+
+
+# def load_header(conversation_dir, subject_id):
+#     """[summary]
+#     Args:
+#         conversation_dir ([type]): [description]
+#         subject_id (string): Subject ID
+#     Returns:
+#         list: labels
+#     """
+#     misc_dir = os.path.join(conversation_dir, subject_id, "misc")
+#     header_file = os.path.join(misc_dir, subject_id + "_header.mat")
+#     if not os.path.exists(header_file):
+#         print(f"[WARN] no header found in {misc_dir}")
+#         return
+#     header = mat73.loadmat(header_file)
+#     labels = header.header.label
+
+#     return labels

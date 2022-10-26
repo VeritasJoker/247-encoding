@@ -42,7 +42,7 @@ SIG_FN :=
 # SIG_FN := --sig-elec-file 676-mariano-prod-new-109.csv 676-mariano-comp-new-104.csv # for sig-test
 # SIG_FN := --sig-elec-file 7170-comp-sig.csv 7170-prod-sig.csv
 # SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-comp.csv tfs-sig-file-625-sig-1.0-prod.csv
-# SIG_FN := --sig-elec-file tfs-sig-file-7170-region-ifg.csv tfs-sig-file-7170-region-ifg.csv
+# SIG_FN := --sig-elec-file tfs-sig-file-625-region-stg.csv tfs-sig-file-625-region-stg.csv
 
 # podcast electrode IDs
 # SID := 777
@@ -91,8 +91,8 @@ CONVERSATION_IDX := 0
 # Choose which set of embeddings to use
 # {glove50 | gpt2-xl | blenderbot-small}
 EMB := blenderbot
-EMB := gpt2-xl
 EMB := blenderbot-small
+EMB := glove50
 EMB := gpt2-xl
 CNXT_LEN := 1024
 
@@ -444,12 +444,10 @@ plot-new:
 	python scripts/tfsplt_new.py \
 		--sid 625 \
 		--formats \
-			'results/tfs/20221012-glove-concat/kw-tfs-full-625-glove50-lag2k-25-all/*/*_%s.csv' \
 			'results/tfs/kw-tfs-full-625-glove50-lag2k-25-all-aligned/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-gpt2-xl-lag2k-25-all/*/*_%s.csv' \
 			'results/tfs/kw-tfs-full-625-gpt2-xl-lag2k-25-all-aligned/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-gpt2-xl-lag2k-25-all-shift-emb/*/*_%s.csv' \
-		--labels glove glove-aligned gpt2-n-1 gpt2-n-1-aligned gpt2-n \
+			'results/tfs/kw-tfs-full-625-gpt2-xl-lag2k-25-all-aligned-shift-emb/*/*_%s.csv' \
+		--labels glove50 gpt2-n-1 gpt2-n \
 		--keys comp prod \
 		$(SIG_FN) \
 		--fig-size $(FIG_SZ) \
@@ -459,7 +457,7 @@ plot-new:
 		$(LAG_TKS) \
 		$(LAG_TK_LABLS) \
 		$(PLT_PARAMS) \
-		--outfile results/figures/tfs-625-gpt2-sig.pdf
+		--outfile results/figures/tfs-625-gpt2-all.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
