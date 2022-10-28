@@ -271,31 +271,34 @@ def mod_datum_by_preds(args, datum, emb_type):
 
         # merge second datum prediction columns to datum
         datum = datum.drop(
-            ["top1_pred"], axis=1, errors="ignore"
+            ["top1_pred", "top1_pred_prob", "true_pred_prob", "true_pred_rank"],
+            axis=1,
+            errors="ignore",
         )  # delete the current top predictions if any
         datum = datum[datum.adjusted_onset.notna()]
         second_datum = second_datum[second_datum.adjusted_onset.notna()]
         datum = datum.merge(second_datum, how="inner", on="adjusted_onset")
+    print(f"Using {emb_type} predictions")
 
     # modify datum based on correct or incorrect predictions
-    if (
-        "incorrect" in args.datum_mod
-    ):  # select words predicted by gpt2 incorrectly (top 1 pred)
+    if "incorrect" in args.datum_mod:  # incorrectly predicted (top 1 pred)
         datum = datum[
             datum.word.str.lower() != datum.top1_pred.str.lower().str.strip()
         ]  # incorrect
-        print(
-            f"Selected {len(datum.index)} incorrect words based on {emb_type} predictions"
-        )
-    elif (
-        "correct" in args.datum_mod
-    ):  # select words predicted by gpt2 correctly (top 1 pred)
+        print(f"Selected {len(datum.index)} incorrect words")
+    elif "correct" in args.datum_mod:  # correctly predicted (top 1 pred)
         datum = datum[
             datum.word.str.lower() == datum.top1_pred.str.lower().str.strip()
         ]  # correct
-        print(
-            f"Selected {len(datum.index)} correct words based on {emb_type} predictions"
-        )
+        print(f"Selected {len(datum.index)} correct words")
+    elif "top0.3" in args.datum_mod:  # top 30% pred prob
+        top = datum.true_pred_prob.quantile(0.7)
+        datum = datum[datum.true_pred_prob >= top]
+        print(f"Selected {len(datum.index)} top pred prob words")
+    elif "bot0.3" in args.datum_mod:  # bot 30% pred prob
+        bot = datum.true_pred_prob.quantile(0.3)
+        datum = datum[datum.true_pred_prob <= bot]
+        print(f"Selected {len(datum.index)} bot pred prob words")
 
     # elif args.datum_mod == emb_type + "-pred": # for incorrectly predicted words, replace with top 1 pred (only used for podcast glove)
     #     glove = api.load('glove-wiki-gigaword-50')
@@ -428,6 +431,48 @@ def trim_datum(args, datum):
     return datum
 
 
+def rand_emb(df):
+    
+    emb_max = df.embeddings.apply(max).max()
+    emb_min = df.embeddings.apply(min).min()
+    
+    rand_emb = np.random.random((len(df),50))
+    rand_emb = rand_emb * (emb_max - emb_min) + emb_min
+    df["embeddings"] = list(rand_emb)
+    print(f"Generated random embeddings for {len(df)} words")
+    
+    return df
+
+
+def zeroshot_datum(df):
+    dfz = (
+        df[["word", "adjusted_onset"]]
+        .groupby("word")
+        .apply(lambda x: x.sample(1, random_state=42))
+    )
+    dfz.reset_index(level=1, inplace=True)
+    dfz.sort_values("adjusted_onset", inplace=True)
+    df = df.loc[dfz.level_1.values]
+    print(f"Zeroshot created datum with {len(df)} words")
+
+    return df
+
+
+def arb_emb(df):
+    
+    df2 = zeroshot_datum(df)
+    df2 = df2.loc[:, ("word", "embeddings")]
+    df2.reset_index(drop=True, inplace=True)
+    df2 = rand_emb(df2)
+    df = df.drop("embeddings", axis=1, errors="ignore")
+
+    df = df.merge(df2, how="left", on="word")
+    df.sort_values(["conversation_id", "index"], inplace=True)
+    print(f"Arbitrary embeddings created for {len(df)} words")
+    
+    return df
+
+
 def mod_datum(args, datum):
     """Filter the datum based on datum_mod argument
 
@@ -463,6 +508,12 @@ def mod_datum(args, datum):
 
     if "-all" in args.datum_mod:
         pass
+
+    elif '-rand' in args.datum_mod:
+        datum = rand_emb(datum)
+        
+    elif '-arb' in args.datum_mod:
+        datum = arb_emb(datum)
 
     else:  # modify datum based on predictions
         pred_type = args.emb_type

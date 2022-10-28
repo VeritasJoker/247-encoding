@@ -458,7 +458,7 @@ def plot_electrodes_split_by_key(pdf, split_dir):
             ax.axhline(0, ls="dashed", alpha=0.3, c="k")
             ax.axvline(0, ls="dashed", alpha=0.3, c="k")
             ax.legend(loc="upper left", frameon=False)
-            ax.set_ylim(-0.05, 0.3)  # .35
+            ax.set_ylim(-0.05, 0.35)  # .35
             ax.set(
                 xlabel="Lag (s)",
                 ylabel="Correlation (r)",
