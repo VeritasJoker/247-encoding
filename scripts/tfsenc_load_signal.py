@@ -83,7 +83,7 @@ def load_electrode_data(args, sid, elec_id, stitch, z_score=False):
         if args.sid == 7170:
             process_flag = "preprocessed_v2"  # second version of 7170
         if args.sid == 798:
-            process_flag = 'preprocessed_allElec'
+            process_flag = "preprocessed_allElec"
     elif args.project_id == "podcast":
         DATA_DIR = "/projects/HASSON/247/data/podcast-data"
         process_flag = "preprocessed_all"
@@ -113,7 +113,10 @@ def load_electrode_data(args, sid, elec_id, stitch, z_score=False):
             if mat_signal is None:
                 continue
 
-            mat_signal = detrend_signal(mat_signal)  # detrend conversation signal
+            if args.sid != 798:
+                mat_signal = detrend_signal(
+                    mat_signal
+                )  # detrend conversation signal
             if z_score:  # doing erp
                 mat_signal = stats.zscore(mat_signal)
 
@@ -122,7 +125,9 @@ def load_electrode_data(args, sid, elec_id, stitch, z_score=False):
             #     raise SystemExit(
             #         f"Error: Conversation file does not exist for electrode {elec_id} at {convo}"
             #     )
-            missing_convos.append(os.path.basename(convo))  # append missing convo name
+            missing_convos.append(
+                os.path.basename(convo)
+            )  # append missing convo name
             mat_signal = create_nan_signal(stitch, convo_id)
 
         else:  # more than 1 conversation files

@@ -28,9 +28,9 @@ BC :=
 # BC :=
 
 # 798 Electrode IDs
-# SID := 798
-# E_LIST := $(shell seq 1 198)
-# BC :=
+SID := 798
+E_LIST := $(shell seq 1 198)
+BC :=
 
 # Sig file will override whatever electrodes you choose
 SIG_FN := 
@@ -42,7 +42,9 @@ SIG_FN :=
 # SIG_FN := --sig-elec-file 676-mariano-prod-new-109.csv 676-mariano-comp-new-104.csv # for sig-test
 # SIG_FN := --sig-elec-file 7170-comp-sig.csv 7170-prod-sig.csv
 # SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-comp.csv tfs-sig-file-625-sig-1.0-prod.csv
-# SIG_FN := --sig-elec-file tfs-sig-file-625-region-stg.csv tfs-sig-file-625-region-stg.csv
+# SIG_FN := --sig-elec-file tfs-sig-file-625-gpt2.csv tfs-sig-file-625-gpt2.csv tfs-sig-file-676-gpt2.csv tfs-sig-file-676-gpt2.csv tfs-sig-file-empty.csv tfs-sig-file-empty.csv tfs-sig-file-798-gpt2.csv tfs-sig-file-798-gpt2.csv
+# SIG_FN := --sig-elec-file tfs-sig-file-625-region-ifg.csv tfs-sig-file-625-region-ifg.csv tfs-sig-file-676-region-ifg.csv tfs-sig-file-676-region-ifg.csv tfs-sig-file-7170-region-ifg.csv tfs-sig-file-7170-region-ifg.csv tfs-sig-file-798-region-ifg.csv tfs-sig-file-798-region-ifg.csv
+
 
 # podcast electrode IDs
 # SID := 777
@@ -81,9 +83,9 @@ LAGS := {-150000..150000..100} # lag60k-1k
 LAGS := {-500..500..5} # lag500-5
 LAGS := -300000 -250000 -200000 200000 250000 300000 # lag300k-50k
 LAGS := -150000 -120000 -90000 90000 120000 150000 # lag150k-30k
-LAGS := -60000 -50000 -40000 -30000 -20000 20000 30000 40000 50000 60000 # lag60k-10k
-LAGS := {-10000..10000..25} # lag10k-25
 LAGS := {-2000..2000..25} # lag2k-25
+LAGS := {-10000..10000..25} # lag10k-25
+LAGS := -60000 -50000 -40000 -30000 -20000 20000 30000 40000 50000 60000 # lag60k-10k
 
 # Conversation ID (Choose 0 to run for all conversations)
 CONVERSATION_IDX := 0
@@ -132,8 +134,8 @@ NM := l2
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
 CMD := echo
-CMD := sbatch submit1.sh
 CMD := python
+CMD := sbatch submit1.sh
 # {echo | python | sbatch submit1.sh}
 
 # datum
@@ -182,7 +184,7 @@ actually predicted by gpt2} (only used for podcast glove)
 
 DM := lag2k-25-incorrect
 DM := lag10k-25-all
-DM := lag2k-25-all-test
+DM := lag60k-10k-all-aligned-shift-emb
 
 ############## Model Modification ##############
 # {best-lag: run encoding using the best lag (lag model with highest correlation)}
@@ -442,12 +444,29 @@ The number of sig elec files should also equal # of sid * # of keys
 plot-new:
 	rm -f results/figures/*
 	python scripts/tfsplt_new.py \
-		--sid 625 \
+		--sid 625 676 7170 798 \
 		--formats \
-			'results/tfs/kw-tfs-full-625-glove50-lag2k-25-all-aligned/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-gpt2-xl-lag2k-25-all-aligned/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-gpt2-xl-lag2k-25-all-aligned-shift-emb/*/*_%s.csv' \
-		--labels glove50 gpt2-n-1 gpt2-n \
+			'results/tfs/kw-tfs-full-625-glove50-lag10k-25-all-aligned/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-625-gpt2-xl-lag10k-25-all-aligned/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-625-gpt2-xl-lag10k-25-all-aligned-shift-emb/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-625-glove50-lag10k-25-arb-aligned/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-625-glove50-lag10k-25-rand-aligned/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-glove50-lag10k-25-all-aligned/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10k-25-all-aligned/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10k-25-all-aligned-shift-emb/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-glove50-lag10k-25-arb-aligned/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-glove50-lag10k-25-rand-aligned/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-7170-glove50-lag10k-25-all-aligned/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-7170-gpt2-xl-lag10k-25-all-aligned/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-7170-gpt2-xl-lag10k-25-all-aligned-shift-emb/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-7170-glove50-lag10k-25-arb-aligned/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-7170-glove50-lag10k-25-rand-aligned/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-798-glove50-lag10k-25-all-aligned/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-798-gpt2-xl-lag10k-25-all-aligned/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-798-gpt2-xl-lag10k-25-all-aligned-shift-emb/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-798-glove50-lag10k-25-arb-aligned/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-798-glove50-lag10k-25-rand-aligned/*/*_%s.csv' \
+		--labels glove gpt2-n-1 gpt2-n arbitrary random glove gpt2-n-1 gpt2-n arbitrary random glove gpt2-n-1 gpt2-n arbitrary random glove gpt2-n-1 gpt2-n arbitrary random \
 		--keys comp prod \
 		$(SIG_FN) \
 		--fig-size $(FIG_SZ) \
@@ -457,7 +476,7 @@ plot-new:
 		$(LAG_TKS) \
 		$(LAG_TK_LABLS) \
 		$(PLT_PARAMS) \
-		--outfile results/figures/tfs-625-gpt2-all.pdf
+		--outfile results/figures/tfs-long-all.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
