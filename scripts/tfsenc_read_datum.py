@@ -249,7 +249,7 @@ def mod_datum_by_preds(args, datum, emb_type):
     Returns:
         DataFrame: further filtered datum
     """
-    if emb_type in args.load_emb_file:  # current datum has the correct emb_type
+    if emb_type in args.emb_df_path:  # current datum has the correct emb_type
         pass
     else:  # current datum does not have the correct emb_type, need to load a second datum
 
