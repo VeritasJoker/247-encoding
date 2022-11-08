@@ -31,7 +31,9 @@ def setup_environ(args):
     if "glove50" in args.align_with:
         args.align_with[args.align_with.index("glove50")] = "glove"
 
-    INPUT_DIR = os.path.join(os.getcwd(), "data", args.project_id, str(args.sid))
+    INPUT_DIR = os.path.join(
+        os.getcwd(), "data", args.project_id, str(args.sid)
+    )
 
     args.PICKLE_DIR = os.path.join(INPUT_DIR, "pickles")
     EMB_DIR = os.path.join(args.PICKLE_DIR, "embeddings")
@@ -50,7 +52,12 @@ def setup_environ(args):
         f"layer_{args.layer_idx:02d}.pkl",
     )
 
-    args.signal_file = "_".join([str(args.sid), args.pkl_identifier, "signal.pkl"])
+    if "full" in args.pkl_identifier:
+        args.pkl_identifier = "full"
+
+    args.signal_file = "_".join(
+        [str(args.sid), args.pkl_identifier, "signal.pkl"]
+    )
     args.electrode_file = "_".join([str(args.sid), "electrode_names.pkl"])
     args.stitch_file = "_".join(
         [str(args.sid), args.pkl_identifier, "stitch_index.pkl"]

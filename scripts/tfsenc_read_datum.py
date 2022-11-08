@@ -63,7 +63,9 @@ def make_input_from_tokens(token_list):
     Returns:
         [type]: [description]
     """
-    windows = [tuple(token_list[x : x + 2]) for x in range(len(token_list) - 2 + 1)]
+    windows = [
+        tuple(token_list[x : x + 2]) for x in range(len(token_list) - 2 + 1)
+    ]
 
     return windows
 
@@ -107,7 +109,9 @@ def add_signal_length(df, stitch):
     df["conv_signal_length"] = np.nan
 
     for idx, conv in enumerate(df.conversation_id.unique()):
-        df.loc[df.conversation_id == conv, "conv_signal_length"] = signal_lengths[idx]
+        df.loc[
+            df.conversation_id == conv, "conv_signal_length"
+        ] = signal_lengths[idx]
 
     return df
 
@@ -164,8 +168,12 @@ def process_datum(args, df, stitch):
 
     df = add_signal_length(df, stitch)
 
-    df = df.loc[~df["conversation_id"].isin(args.bad_convos)]  # filter bad convos
-    assert len(stitch) - len(args.bad_convos) == df.conversation_id.nunique() + 1
+    df = df.loc[
+        ~df["conversation_id"].isin(args.bad_convos)
+    ]  # filter bad convos
+    assert (
+        len(stitch) - len(args.bad_convos) == df.conversation_id.nunique() + 1
+    )
 
     if args.project_id == "tfs" and not all(
         [item in df.columns for item in ["adjusted_onset", "adjusted_offset"]]
@@ -256,7 +264,8 @@ def mod_datum_by_preds(args, datum, emb_type):
         # load second datum
         if emb_type == "gpt2-xl":
             second_datum_name = (
-                str(args.sid) + "_full_gpt2-xl_cnxt_1024_layer_48_embeddings.pkl"
+                str(args.sid)
+                + "_full_gpt2-xl_cnxt_1024_layer_48_embeddings.pkl"
             )
         elif emb_type == "blenderbot-small":
             second_datum_name = (
@@ -358,12 +367,17 @@ def shift_emb(args, datum, mode="shift-emb"):
             datum = datum[
                 (
                     datum.production.shift(step) == datum.production
-                    and datum.conversation_id.shift(step) == datum.conversation_id
+                    and datum.conversation_id.shift(step)
+                    == datum.conversation_id
                 )
             ]
         else:
-            datum = datum[datum.conversation_id.shift(step) == datum.conversation_id]
-    print(f"Shifting resulted in {before_shift_num - len(datum.index)} less words")
+            datum = datum[
+                datum.conversation_id.shift(step) == datum.conversation_id
+            ]
+    print(
+        f"Shifting resulted in {before_shift_num - len(datum.index)} less words"
+    )
     return datum
 
 
@@ -391,18 +405,23 @@ def concat_emb(args, datum, mode="concat-emb"):
             datum = datum[
                 (
                     datum.production.shift(step) == datum.production
-                    and datum.conversation_id.shift(step) == datum.conversation_id
+                    and datum.conversation_id.shift(step)
+                    == datum.conversation_id
                 )
             ]
         else:
-            datum = datum[datum.conversation_id.shift(step) == datum.conversation_id]
+            datum = datum[
+                datum.conversation_id.shift(step) == datum.conversation_id
+            ]
 
         def concat(x):
             return np.concatenate((x["embeddings"], x["embeddings_shifted"]))
 
         datum["embeddings"] = datum.apply(concat, axis=1)
 
-    print(f"Concatenating resulted in {before_shift_num - len(datum.index)} less words")
+    print(
+        f"Concatenating resulted in {before_shift_num - len(datum.index)} less words"
+    )
 
     return datum
 
@@ -421,8 +440,14 @@ def trim_datum(args, datum):
     lag = int(args.lags[-1] / 1000 * 512)  # trim edges based on lag
     original_len = len(datum.index)
     datum = datum.loc[
-        ((datum["adjusted_onset"] - lag) >= (datum["convo_onset"] + half_window + 1))
-        & ((datum["adjusted_onset"] + lag) <= (datum["convo_offset"] - half_window - 1))
+        (
+            (datum["adjusted_onset"] - lag)
+            >= (datum["convo_onset"] + half_window + 1)
+        )
+        & (
+            (datum["adjusted_onset"] + lag)
+            <= (datum["convo_offset"] - half_window - 1)
+        )
     ]
     new_datum_len = len(datum.index)
     print(
@@ -432,15 +457,15 @@ def trim_datum(args, datum):
 
 
 def rand_emb(df):
-    
+
     emb_max = df.embeddings.apply(max).max()
     emb_min = df.embeddings.apply(min).min()
-    
-    rand_emb = np.random.random((len(df),50))
+
+    rand_emb = np.random.random((len(df), 50))
     rand_emb = rand_emb * (emb_max - emb_min) + emb_min
     df["embeddings"] = list(rand_emb)
     print(f"Generated random embeddings for {len(df)} words")
-    
+
     return df
 
 
@@ -459,7 +484,7 @@ def zeroshot_datum(df):
 
 
 def arb_emb(df):
-    
+
     df2 = zeroshot_datum(df)
     df2 = df2.loc[:, ("word", "embeddings")]
     df2.reset_index(drop=True, inplace=True)
@@ -469,7 +494,7 @@ def arb_emb(df):
     df = df.merge(df2, how="left", on="word")
     df.sort_values(["conversation_id", "index"], inplace=True)
     print(f"Arbitrary embeddings created for {len(df)} words")
-    
+
     return df
 
 
@@ -497,7 +522,9 @@ def mod_datum(args, datum):
         datum = datum[datum.conversation_id == args.conversation_id]
         datum.convo_offset = datum["convo_offset"] - datum["convo_onset"]
         datum.convo_onset = 0
-        print(f"Running conversation {args.conversation_id} with {len(datum)} words")
+        print(
+            f"Running conversation {args.conversation_id} with {len(datum)} words"
+        )
 
     if "shift-emb" in args.datum_mod:  # shift embeddings to include word
         datum = shift_emb(args, datum, "shift-emb")
@@ -509,10 +536,10 @@ def mod_datum(args, datum):
     if "-all" in args.datum_mod:
         pass
 
-    elif '-rand' in args.datum_mod:
+    elif "-rand" in args.datum_mod:
         datum = rand_emb(datum)
-        
-    elif '-arb' in args.datum_mod:
+
+    elif "-arb" in args.datum_mod:
         datum = arb_emb(datum)
 
     else:  # modify datum based on predictions
@@ -521,7 +548,9 @@ def mod_datum(args, datum):
             pred_type = "gpt2-xl"
         elif "blenerbot-small" in args.datum_mod:
             pred_type = "blenderbot-small"
-        assert "glove" not in pred_type, "Glove embeddings does not have predictions"
+        assert (
+            "glove" not in pred_type
+        ), "Glove embeddings does not have predictions"
         datum = mod_datum_by_preds(args, datum, pred_type)
 
     # else:
@@ -543,6 +572,7 @@ def read_datum(args, stitch):
     emb_df = load_datum(args.emb_df_path)
     base_df = load_datum(args.base_df_path)
 
+    base_df.reset_index(drop=True,inplace=True)  # so concatenate can be aligned correctly
     df = pd.concat([base_df, emb_df], axis=1)
     print(f"After loading: Datum loads with {len(df)} words")
 

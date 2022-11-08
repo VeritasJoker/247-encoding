@@ -361,9 +361,9 @@ def plot_average_split_by_key(pdf, split_dir):
             vals = subsubdf.mean(axis=0)
             err = subsubdf.sem(axis=0)
             key = (label, mode)
-            # ax.fill_between(
-            #     x_vals_show, vals - err, vals + err, alpha=0.2, color=cmap[key]
-            # )
+            ax.fill_between(
+                x_vals_show, vals - err, vals + err, alpha=0.2, color=cmap[key]
+            )
             ax.plot(
                 x_vals_show,
                 vals,
