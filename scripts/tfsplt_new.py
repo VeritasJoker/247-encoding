@@ -135,16 +135,12 @@ def get_cmap_smap(args):
             for label, style in zip(unique_labels, styles):
                 cmap[(label, key)] = color
                 smap[(label, key)] = style
-    elif (
-        args.lc_by == args.ls_by == "labels"
-    ):  # both line color and style by labels
+    elif args.lc_by == args.ls_by == "labels":  # both line color and style by labels
         for label, color, style in zip(unique_labels, colors, styles):
             for key in unique_keys:
                 cmap[(label, key)] = color
                 smap[(label, key)] = style
-    elif (
-        args.lc_by == args.ls_by == "keys"
-    ):  # both line color and style by keys
+    elif args.lc_by == args.ls_by == "keys":  # both line color and style by keys
         for key, color, style in zip(unique_keys, colors, styles):
             for label in unique_labels:
                 cmap[(label, key)] = color
@@ -189,9 +185,7 @@ elif len(args.sig_elec_file) == len(args.sid) * len(args.keys):
             sigelecs[sid_key] = set(elecs)
             multiple_sid = True
 else:
-    raise Exception(
-        "Need a significant electrode file for each subject-key combo"
-    )
+    raise Exception("Need a significant electrode file for each subject-key combo")
 
 
 # -----------------------------------------------------------------------------
@@ -262,9 +256,7 @@ if len(args.lags_show) < len(
 ):  # if we want to plot part of the lags and not all lags
     print("Trimming Data")
     chosen_lag_idx = [
-        idx
-        for idx, element in enumerate(args.lags_plot)
-        if element in args.lags_show
+        idx for idx, element in enumerate(args.lags_plot) if element in args.lags_show
     ]
     df = df.loc[:, chosen_lag_idx]  # chose from lags to show for the plot
     assert len(x_vals_show) == len(
@@ -320,7 +312,7 @@ def get_elecbrain(electrode):
 def plot_average(pdf):
     print("Plotting Average")
     fig, ax = plt.subplots(figsize=fig_size)
-    axins = inset_axes(ax, width=3, height=1.5, loc=2, borderpad=4)
+    # axins = inset_axes(ax, width=3, height=1.5, loc=2, borderpad=4)
     for mode, subdf in df.groupby(["label", "mode"], axis=0):
         vals = subdf.mean(axis=0)
         err = subdf.sem(axis=0)
@@ -335,8 +327,8 @@ def plot_average(pdf):
             color=cmap[mode],
             ls=smap[mode],
         )
-        layer_num = int(mode[0].replace("layer", ""))
-        axins.scatter(layer_num, max(vals), color=cmap[mode])
+        # layer_num = int(mode[0].replace("layer", ""))
+        # axins.scatter(layer_num, max(vals), color=cmap[mode])
         if len(args.lag_ticks) != 0:
             ax.set_xticks(args.lag_ticks)
             ax.set_xticklabels(args.lag_tick_labels)
@@ -423,7 +415,7 @@ def plot_electrodes(pdf):
     print("Plotting Individual Electrodes")
     for (electrode, sid), subdf in df.groupby(["electrode", "sid"], axis=0):
         fig, ax = plt.subplots(figsize=fig_size)
-        axins = inset_axes(ax, width=3, height=1.5, borderpad=4)
+        # axins = inset_axes(ax, width=3, height=1.5, borderpad=4)
         for (label, _, mode, _), values in subdf.iterrows():
             mode = (label, mode)
             label = "-".join(mode)
@@ -434,8 +426,8 @@ def plot_electrodes(pdf):
                 color=cmap[mode],
                 ls=smap[mode],
             )
-            layer_num = int(mode[0].replace("layer", ""))
-            axins.scatter(layer_num, max(values), color=cmap[mode])
+            # layer_num = int(mode[0].replace("layer", ""))
+            # axins.scatter(layer_num, max(values), color=cmap[mode])
         if len(args.lag_ticks) != 0:
             ax.set_xticks(args.lag_ticks)
             ax.set_xticklabels(args.lag_tick_labels)
