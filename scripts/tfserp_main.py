@@ -21,7 +21,7 @@ def erp(args, datum, elec_signal, name):
     datum_comp = datum[datum.speaker != "Speaker1"]  # comprehension data
     datum_prod = datum[datum.speaker == "Speaker1"]  # production data
     print(
-        f"{args.sid} {name} Prod: {len(datum_comp.index)} Comp: {len(datum_prod.index)}"
+        f"{args.sid} {name} Prod: {len(datum_prod.index)} Comp: {len(datum_comp.index)}"
     )
 
     erp_comp = calc_average(
@@ -138,7 +138,7 @@ def main():
 
     assert args.sig_elec_file == None, "Do not input significant electrode list"
     electrode_info = process_subjects(args)
-    load_and_erp_parallel(args, electrode_info, datum, stitch_index, False)
+    load_and_erp_parallel(args, electrode_info, datum, stitch_index)
 
     return
 

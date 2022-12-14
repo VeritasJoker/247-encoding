@@ -7,10 +7,16 @@ import pandas as pd
 from sklearn.preprocessing import normalize
 from utils import load_pickle
 
-# import gensim.downloader as api
-# import re
+import gensim.downloader as api
 
 NONWORDS = {"hm", "huh", "mhm", "mm", "oh", "uh", "uhuh", "um"}
+
+
+def get_vector(x, glove):
+    try:
+        return glove.get_vector(x)
+    except KeyError:
+        return None
 
 
 def remove_punctuation(df):
@@ -63,7 +69,9 @@ def make_input_from_tokens(token_list):
     Returns:
         [type]: [description]
     """
-    windows = [tuple(token_list[x : x + 2]) for x in range(len(token_list) - 2 + 1)]
+    windows = [
+        tuple(token_list[x : x + 2]) for x in range(len(token_list) - 2 + 1)
+    ]
 
     return windows
 
@@ -107,7 +115,9 @@ def add_signal_length(df, stitch):
     df["conv_signal_length"] = np.nan
 
     for idx, conv in enumerate(df.conversation_id.unique()):
-        df.loc[df.conversation_id == conv, "conv_signal_length"] = signal_lengths[idx]
+        df.loc[
+            df.conversation_id == conv, "conv_signal_length"
+        ] = signal_lengths[idx]
 
     return df
 
@@ -164,8 +174,12 @@ def process_datum(args, df, stitch):
 
     df = add_signal_length(df, stitch)
 
-    df = df.loc[~df["conversation_id"].isin(args.bad_convos)]  # filter bad convos
-    assert len(stitch) - len(args.bad_convos) == df.conversation_id.nunique() + 1
+    df = df.loc[
+        ~df["conversation_id"].isin(args.bad_convos)
+    ]  # filter bad convos
+    assert (
+        len(stitch) - len(args.bad_convos) == df.conversation_id.nunique() + 1
+    )
 
     if args.project_id == "tfs" and not all(
         [item in df.columns for item in ["adjusted_onset", "adjusted_offset"]]
@@ -252,22 +266,44 @@ def mod_datum_by_preds(args, datum, emb_type):
     if emb_type in args.emb_df_path:  # current datum has the correct emb_type
         pass
     else:  # current datum does not have the correct emb_type, need to load a second datum
-
         # load second datum
         if emb_type == "gpt2-xl":
-            second_datum_name = (
-                str(args.sid) + "_full_gpt2-xl_cnxt_1024_layer_48_embeddings.pkl"
+            second_base_df_path = os.path.join(
+                args.PICKLE_DIR, "embeddings", "gpt2-xl", "full", "base_df.pkl"
             )
-        elif emb_type == "blenderbot-small":
-            second_datum_name = (
-                str(args.sid) + "_full_blenderbot-small_layer_16_embeddings.pkl"
+            second_emb_df_path = os.path.join(
+                args.PICKLE_DIR,
+                "embeddings",
+                "gpt2-xl",
+                "full",
+                "cnxt_1024",
+                "layer_48.pkl",
             )
-        second_datum_path = os.path.join(
-            args.PICKLE_DIR, second_datum_name
-        )  # second datum full path
-        second_datum = load_datum(second_datum_path)[
-            ["adjusted_onset", "top1_pred"]
-        ]  # load second datum
+        else:
+            raise Exception("Not implemented")  # TODO
+
+        second_base_df = load_datum(second_base_df_path)
+        second_emb_df = load_datum(second_emb_df_path)
+
+        second_base_df.reset_index(
+            drop=True, inplace=True
+        )  # so concatenate can be aligned correctly
+        second_datum = pd.concat([second_base_df, second_emb_df], axis=1)
+        if args.emb_type == "glove":
+            second_datum = second_datum[
+                second_datum["gpt2-xl_token_is_root"] & second_datum["in_glove"]
+            ]
+        second_datum = second_datum.loc[
+            :,
+            [
+                "adjusted_onset",
+                "word",
+                "top1_pred",
+                "top1_pred_prob",
+                "true_pred_prob",
+                "true_pred_rank",
+            ],
+        ]
 
         # merge second datum prediction columns to datum
         datum = datum.drop(
@@ -277,20 +313,18 @@ def mod_datum_by_preds(args, datum, emb_type):
         )  # delete the current top predictions if any
         datum = datum[datum.adjusted_onset.notna()]
         second_datum = second_datum[second_datum.adjusted_onset.notna()]
-        datum = datum.merge(second_datum, how="inner", on="adjusted_onset")
+        datum = datum.merge(
+            second_datum, how="inner", on=["adjusted_onset", "word"]
+        )
     print(f"Using {emb_type} predictions")
 
     # modify datum based on correct or incorrect predictions
-    if "incorrect" in args.datum_mod:  # incorrectly predicted (top 1 pred)
-        datum = datum[
-            datum.word.str.lower() != datum.top1_pred.str.lower().str.strip()
-        ]  # incorrect
-        print(f"Selected {len(datum.index)} incorrect words")
-    elif "correct" in args.datum_mod:  # correctly predicted (top 1 pred)
-        datum = datum[
-            datum.word.str.lower() == datum.top1_pred.str.lower().str.strip()
-        ]  # correct
-        print(f"Selected {len(datum.index)} correct words")
+    if "incorrect" in args.datum_mod:  # incorrectly predicted (top 5 pred)
+        datum = datum[datum.true_pred_rank > 1]  # incorrect
+        print(f"Selected {len(datum.index)} top1 incorrect words")
+    elif "correct" in args.datum_mod:  # correctly predicted (top 5 pred)
+        datum = datum[datum.true_pred_rank <= 1]  # correct
+        print(f"Selected {len(datum.index)} top1 correct words")
     elif "top0.3" in args.datum_mod:  # top 30% pred prob
         top = datum.true_pred_prob.quantile(0.7)
         datum = datum[datum.true_pred_prob >= top]
@@ -300,11 +334,17 @@ def mod_datum_by_preds(args, datum, emb_type):
         datum = datum[datum.true_pred_prob <= bot]
         print(f"Selected {len(datum.index)} bot pred prob words")
 
-    # elif args.datum_mod == emb_type + "-pred": # for incorrectly predicted words, replace with top 1 pred (only used for podcast glove)
-    #     glove = api.load('glove-wiki-gigaword-50')
-    #     datum['embeddings'] = datum.top1_pred.str.strip().apply(lambda x: get_vector(x.lower(), glove))
-    #     datum = datum[datum.embeddings.notna()]
-    #     print(f'Changed words into {emb_type} top predictions')
+    elif (
+        emb_type + "-pred"
+    ) in args.datum_mod:  # for incorrectly predicted words, replace with top 1 pred (only used for podcast glove)
+        datum = datum[datum.true_pred_rank > 1]  # incorrect
+        print(f"Selected {len(datum.index)} top1 incorrect words")
+        glove = api.load("glove-wiki-gigaword-50")
+        datum["embeddings"] = datum.top1_pred.str.strip().apply(
+            lambda x: get_vector(x.lower(), glove)
+        )
+        datum = datum[datum.embeddings.notna()]
+        print(f"Changed into {emb_type} top preds with {len(datum)} words")
     else:  # exception
         raise Exception("Invalid Datum Modification")
 
@@ -358,12 +398,17 @@ def shift_emb(args, datum, mode="shift-emb"):
             datum = datum[
                 (
                     datum.production.shift(step) == datum.production
-                    and datum.conversation_id.shift(step) == datum.conversation_id
+                    and datum.conversation_id.shift(step)
+                    == datum.conversation_id
                 )
             ]
         else:
-            datum = datum[datum.conversation_id.shift(step) == datum.conversation_id]
-    print(f"Shifting resulted in {before_shift_num - len(datum.index)} less words")
+            datum = datum[
+                datum.conversation_id.shift(step) == datum.conversation_id
+            ]
+    print(
+        f"Shifting resulted in {before_shift_num - len(datum.index)} less words"
+    )
     return datum
 
 
@@ -391,18 +436,23 @@ def concat_emb(args, datum, mode="concat-emb"):
             datum = datum[
                 (
                     datum.production.shift(step) == datum.production
-                    and datum.conversation_id.shift(step) == datum.conversation_id
+                    and datum.conversation_id.shift(step)
+                    == datum.conversation_id
                 )
             ]
         else:
-            datum = datum[datum.conversation_id.shift(step) == datum.conversation_id]
+            datum = datum[
+                datum.conversation_id.shift(step) == datum.conversation_id
+            ]
 
         def concat(x):
             return np.concatenate((x["embeddings"], x["embeddings_shifted"]))
 
         datum["embeddings"] = datum.apply(concat, axis=1)
 
-    print(f"Concatenating resulted in {before_shift_num - len(datum.index)} less words")
+    print(
+        f"Concatenating resulted in {before_shift_num - len(datum.index)} less words"
+    )
 
     return datum
 
@@ -421,8 +471,14 @@ def trim_datum(args, datum):
     lag = int(args.lags[-1] / 1000 * 512)  # trim edges based on lag
     original_len = len(datum.index)
     datum = datum.loc[
-        ((datum["adjusted_onset"] - lag) >= (datum["convo_onset"] + half_window + 1))
-        & ((datum["adjusted_onset"] + lag) <= (datum["convo_offset"] - half_window - 1))
+        (
+            (datum["adjusted_onset"] - lag)
+            >= (datum["convo_onset"] + half_window + 1)
+        )
+        & (
+            (datum["adjusted_onset"] + lag)
+            <= (datum["convo_offset"] - half_window - 1)
+        )
     ]
     new_datum_len = len(datum.index)
     print(
@@ -497,7 +553,9 @@ def mod_datum(args, datum):
         datum = datum[datum.conversation_id == args.conversation_id]
         datum.convo_offset = datum["convo_offset"] - datum["convo_onset"]
         datum.convo_onset = 0
-        print(f"Running conversation {args.conversation_id} with {len(datum)} words")
+        print(
+            f"Running conversation {args.conversation_id} with {len(datum)} words"
+        )
 
     if "shift-emb" in args.datum_mod:  # shift embeddings to include word
         datum = shift_emb(args, datum, "shift-emb")
@@ -521,7 +579,9 @@ def mod_datum(args, datum):
             pred_type = "gpt2-xl"
         elif "blenerbot-small" in args.datum_mod:
             pred_type = "blenderbot-small"
-        assert "glove" not in pred_type, "Glove embeddings does not have predictions"
+        assert (
+            "glove" not in pred_type
+        ), "Glove embeddings does not have predictions"
         datum = mod_datum_by_preds(args, datum, pred_type)
 
     # else:

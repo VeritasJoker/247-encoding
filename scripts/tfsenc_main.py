@@ -53,6 +53,7 @@ def process_subjects(args):
         sig_elec_list = pd.read_csv(sig_elec_file).rename(
             columns={"electrode": "electrode_name"}
         )
+        df["subject"] = df.subject.astype(int)
         sid_sig_elec_list = pd.merge(
             df, sig_elec_list, how="inner", on=["subject", "electrode_name"]
         )
@@ -241,7 +242,7 @@ def main():
 
     # Processing significant electrodes or individual subjects
     electrode_info = process_subjects(args)
-    parallel_encoding(args, electrode_info, datum, stitch_index)
+    parallel_encoding(args, electrode_info, datum, stitch_index, False)
 
     return
 
