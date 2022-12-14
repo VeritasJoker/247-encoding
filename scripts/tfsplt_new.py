@@ -106,16 +106,18 @@ def get_cmap_smap(args):
     prop_cycle = plt.rcParams["axes.prop_cycle"]
     colors = prop_cycle.by_key()["color"]  # separate colors
 
-    cmap = plt.cm.get_cmap("jet")
-
-    # if len(args.labels) > 10:
-    #     col_len = 17
+    # cmap = plt.cm.get_cmap("jet")
+    # if len(args.labels) >= 5:
+    #     col_len = len(unique_labels) + 1
     #     colors = [cmap(i / col_len) for i in range(1, col_len)]
 
     # colors = [colorFader('#97baf7','#000308',i/col_len) for i in range(1,col_len)] # color gradient
 
-    # colors2 = [colorFader('#97baf7','#032661',i/col_len) for i in range(1,col_len)] # color gradient
-    # colors1 = [colorFader('#f2b5b1','#6e0801',i/col_len) for i in range(1,col_len)]
+    # colors2 = [colorFader("#032661", "#97baf7", i / col_len) for i in range(1, col_len)]
+    # colors1 = [colorFader("#f2b5b1", "#6e0801", i / col_len) for i in range(1, col_len)]
+
+    # colors = [colorFader("#01296e", "#97baf7", i / 6) for i in range(1, 6)]
+    # colors = [colorFader("#f2b5b1", "#520601", i / 6) for i in range(1, 6)]
     # colors = colors1 + colors2
     styles = ["--", "-", "-.", ":"]
     cmap = {}  # line color map
@@ -167,11 +169,12 @@ if len(args.sig_elec_file) == 0:
     pass
 elif len(args.sig_elec_file) == len(args.sid) * len(args.keys):
     sid_key_tup = [x for x in itertools.product(args.sid, args.keys)]
+    huge_sig_file = pd.DataFrame()
     for fname, sid_key in zip(args.sig_elec_file, sid_key_tup):
         sig_file = pd.read_csv("data/" + fname)
         if sig_file.subject.nunique() == 1:
-            # elecs = sig_file['electrode'].tolist()
-            # sigelecs[sid_key] = set(elecs) # need to use this for old 625-676 results
+            # elecs = sig_file["electrode"].tolist()
+            # sigelecs[sid_key] = set(elecs)  # need to use this for old 625-676 results
             sig_file["sid_electrode"] = (
                 sig_file["subject"].astype(str) + "_" + sig_file["electrode"]
             )
@@ -184,6 +187,7 @@ elif len(args.sig_elec_file) == len(args.sid) * len(args.keys):
             elecs = sig_file["sid_electrode"].tolist()
             sigelecs[sid_key] = set(elecs)
             multiple_sid = True
+        huge_sig_file = pd.concat([huge_sig_file, sig_file])
 else:
     raise Exception("Need a significant electrode file for each subject-key combo")
 
@@ -263,7 +267,8 @@ if len(args.lags_show) < len(
         df.columns
     ), "args.lags_show length must be the same size as trimmed df column number"
 
-# breakpoint()
+
+# df = df[df.max(axis=1) >= 0.08]
 # df = df[df[160] <= 0.04]
 # df = df[df[0] <= 0.04]
 
@@ -317,9 +322,9 @@ def plot_average(pdf):
         vals = subdf.mean(axis=0)
         err = subdf.sem(axis=0)
         label = "-".join(mode)
-        ax.fill_between(
-            x_vals_show, vals - err, vals + err, alpha=0.2, color=cmap[mode]
-        )
+        # ax.fill_between(
+        #     x_vals_show, vals - err, vals + err, alpha=0.2, color=cmap[mode]
+        # )
         ax.plot(
             x_vals_show,
             vals,
@@ -356,12 +361,19 @@ def plot_average_split_by_key(pdf, split_dir):
             ax.fill_between(
                 x_vals_show, vals - err, vals + err, alpha=0.2, color=cmap[key]
             )
+            # vals = (vals - vals.min()) / (vals.max() - vals.min())  # normalize
             ax.plot(
                 x_vals_show,
                 vals,
                 label=f"{label} ({len(subsubdf)})",
                 color=cmap[key],
                 ls=smap[key],
+            )
+            ax.text(
+                x_vals_show[vals.argmax()] - 0.05,
+                vals.max() + 0.001,
+                f"{x_vals_show[vals.argmax()]}",
+                color=cmap[key],
             )
             if len(args.lag_ticks) != 0:
                 ax.set_xticks(args.lag_ticks)
@@ -411,9 +423,16 @@ def plot_average_split_by_label(pdf, split_dir):
     return pdf
 
 
-def plot_electrodes(pdf):
+def plot_electrodes(pdf, sig_file):
+
     print("Plotting Individual Electrodes")
-    for (electrode, sid), subdf in df.groupby(["electrode", "sid"], axis=0):
+    sig_file = sig_file.sort_values(by=["area"], ascending=True)
+    # for (electrode, sid), subdf in df.groupby(["electrode", "sid"], axis=0):
+    for _, values in sig_file.iterrows():  # order by single sig list
+        sid = values["subject"]
+        electrode = values["sid_electrode"]
+        area = values["area"]
+        subdf = df.xs(electrode, level="electrode", drop_level=False)
         fig, ax = plt.subplots(figsize=fig_size)
         # axins = inset_axes(ax, width=3, height=1.5, borderpad=4)
         for (label, _, mode, _), values in subdf.iterrows():
@@ -426,6 +445,7 @@ def plot_electrodes(pdf):
                 color=cmap[mode],
                 ls=smap[mode],
             )
+            ax.text(-2, 0.2, f"{area}")
             # layer_num = int(mode[0].replace("layer", ""))
             # axins.scatter(layer_num, max(values), color=cmap[mode])
         if len(args.lag_ticks) != 0:
@@ -465,6 +485,9 @@ def plot_electrodes_split_by_key(pdf, split_dir):
             for row, values in subsubdf.iterrows():
                 label = row[0]
                 key = (label, mode)
+                # values = (values - values.min()) / (
+                #     values.max() - values.min()
+                # )  # normalize
                 ax.plot(
                     x_vals_show,
                     values,
@@ -472,13 +495,18 @@ def plot_electrodes_split_by_key(pdf, split_dir):
                     color=cmap[key],
                     ls=smap[key],
                 )
+                ax.text(
+                    x_vals_show[values.argmax()] - 0.05,
+                    values.max() + 0.001,
+                    f"{x_vals_show[values.argmax()]}",
+                    color=cmap[key],
+                )
             if len(args.lag_ticks) != 0:
                 ax.set_xticks(args.lag_ticks)
                 ax.set_xticklabels(args.lag_tick_labels)
             ax.axhline(0, ls="dashed", alpha=0.3, c="k")
             ax.axvline(0, ls="dashed", alpha=0.3, c="k")
             ax.legend(loc="upper left", frameon=False)
-            ax.set_ylim(-0.05, 0.35)  # .35
             ax.set_ylim(vmin - 0.05, vmax + 0.05)  # .35
             ax.set(
                 xlabel="Lag (s)",
@@ -555,6 +583,6 @@ if args.split:
         pdf = plot_electrodes_split_by_label(pdf, args.split)
 else:
     pdf = plot_average(pdf)
-    pdf = plot_electrodes(pdf)
+    pdf = plot_electrodes(pdf, huge_sig_file)
 
 pdf.close()
