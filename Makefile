@@ -18,9 +18,9 @@ E_LIST := $(shell seq 1 105)
 BC := 
 
 # 676 Electrode IDs
-# SID := 676
-# E_LIST := $(shell seq 1 125)
-# BC := --bad-convos 38 39
+SID := 676
+E_LIST := $(shell seq 1 125)
+BC := --bad-convos 38 39
 
 # 717 Electrode IDs
 # SID := 7170
@@ -28,22 +28,17 @@ BC :=
 # BC :=
 
 # 798 Electrode IDs
-SID := 798
-E_LIST := $(shell seq 1 198)
-BC :=
+# SID := 798
+# E_LIST := $(shell seq 1 198)
+# BC :=
 
 # Sig file will override whatever electrodes you choose
 SIG_FN := 
-# SIG_FN := --sig-elec-file test.csv
-# SIG_FN := --sig-elec-file 129-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH.csv
-# SIG_FN := --sig-elec-file colton625.csv colton625.csv
-# SIG_FN := --sig-elec-file tfs-sig-file-625-top-0.3-prod.csv tfs-sig-file-625-sig-0.3-comp.csv
-# SIG_FN := --sig-elec-file 625-mariano-prod-new-53.csv 625-mariano-comp-new-30.csv # for sig-test
-# SIG_FN := --sig-elec-file 676-mariano-prod-new-109.csv 676-mariano-comp-new-104.csv # for sig-test
-# SIG_FN := --sig-elec-file 7170-comp-sig.csv 7170-prod-sig.csv
+# SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-comp.csv tfs-sig-file-625-sig-1.0-prod.csv tfs-sig-file-676-sig-1.0-comp.csv tfs-sig-file-676-sig-1.0-prod.csv tfs-sig-file-7170-sig-1.0-comp.csv tfs-sig-file-7170-sig-1.0-prod.csv tfs-sig-file-798-sig-1.0-comp.csv tfs-sig-file-798-sig-1.0-comp.csv
 # SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-comp.csv tfs-sig-file-625-sig-1.0-prod.csv
-# SIG_FN := --sig-elec-file tfs-sig-file-625-gpt2.csv tfs-sig-file-625-gpt2.csv tfs-sig-file-676-gpt2.csv tfs-sig-file-676-gpt2.csv tfs-sig-file-empty.csv tfs-sig-file-empty.csv tfs-sig-file-798-gpt2.csv tfs-sig-file-798-gpt2.csv
+# SIG_FN := --sig-elec-file tfs-sig-file-625-top-0.08-comp.csv tfs-sig-file-625-top-0.08-prod.csv
 # SIG_FN := --sig-elec-file tfs-sig-file-625-region-ifg.csv tfs-sig-file-625-region-ifg.csv tfs-sig-file-676-region-ifg.csv tfs-sig-file-676-region-ifg.csv tfs-sig-file-7170-region-ifg.csv tfs-sig-file-7170-region-ifg.csv tfs-sig-file-798-region-ifg.csv tfs-sig-file-798-region-ifg.csv
+# SIG_FN := --sig-elec-file tfs-sig-file-625-all.csv tfs-sig-file-625-all.csv tfs-sig-file-676-all.csv tfs-sig-file-676-all.csv tfs-sig-file-7170-all.csv tfs-sig-file-7170-all.csv tfs-sig-file-798-all.csv tfs-sig-file-798-all.csv
 
 
 # podcast electrode IDs
@@ -72,7 +67,7 @@ SIG_FN :=
 # SIG_FN := --sig-elec-file podcast_160.csv
 
 PKL_IDENTIFIER := full
-# {full | trimmed}
+# {full | trimmed | full_masked_l_r | full_masked_l | full_masked_r}
 
 # number of permutations (goes with SH and PSH)
 NPERM := 1000
@@ -94,22 +89,27 @@ CONVERSATION_IDX := 0
 # {glove50 | gpt2-xl | blenderbot-small}
 EMB := blenderbot
 EMB := blenderbot-small
+EMB := bert-large-uncased
+EMB := roberta-large
+EMB := bert-large-cased
 EMB := glove50
 EMB := gpt2-xl
-CNXT_LEN := 1024
+EMB := whisper-tiny.en
+CNXT_LEN := 1
 
 # Choose the window size to average for each point
 WS := 200
 
 # Choose which set of embeddings to align with (intersection of embeddings)
 ALIGN_WITH := blenderbot-small
+ALIGN_WITH :=  glove50 gpt2-xl blenderbot-small
 ALIGN_WITH := gpt2-xl
-ALIGN_WITH := glove50 gpt2-xl blenderbot-small
 ALIGN_WITH := glove50 gpt2-xl
+ALIGN_WITH := $(EMB)
 
 # Choose layer of embeddings to use
-# {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
-LAYER_IDX := 48
+# {1 for glove, 48 for gpt2, 16 for bbot, 24 for bert-lg}
+LAYER_IDX := 0 1 2 3 4
 
 # Choose whether to PCA (0 or for no pca)
 PCA_TO := 50
@@ -131,16 +131,26 @@ WV := all
 NM := l2
 # {l1 | l2 | max}
 
+
+# Token type (choose which tokens to take)
+# all: use all tokens
+# first: use all first tokens for each word
+# last: use all last tokens for each word
+# ave: use ave embedding of all tokens for each word
+# root: use only tokens that are root
+TT := root
+TT := first
+TT := last
+TT := mean
+TT := all
+
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
-CMD := echo
 CMD := python
+CMD := echo
 CMD := sbatch submit1.sh
 # {echo | python | sbatch submit1.sh}
 
-# datum
-# DS := podcast-datum-glove-50d.csv
-# DS := podcast-datum-gpt2-xl-c_1024-previous-pca_50d.csv
 
 
 ############## Datum Modifications ##############
@@ -183,8 +193,8 @@ actually predicted by gpt2} (only used for podcast glove)
 # 3. {everything else is purely for the result folder name}
 
 DM := lag2k-25-incorrect
-DM := lag10k-25-all
-DM := lag60k-10k-all-aligned-shift-emb
+DM := lag2k-25-all
+DM := lag60k-10k-all
 
 ############## Model Modification ##############
 # {best-lag: run encoding using the best lag (lag model with highest correlation)}
@@ -231,6 +241,7 @@ run-encoding:
 		--fold-num $(FN) \
 		--pca-to $(PCA_TO) \
 		--layer-idx $(LAYER_IDX) \
+		--token-type $(TT) \
 		--datum-mod $(DM) \
 		--model-mod $(MM) \
 		$(BC) \
@@ -244,7 +255,6 @@ run-encoding:
 
 run-encoding-layers:
 	mkdir -p logs
-	for context in $(CNXT_LEN); do\
 		for layer in $(LAYER_IDX); do\
 			$(CMD) scripts/$(FILE).py \
 				--project-id $(PRJCT_ID) \
@@ -254,15 +264,17 @@ run-encoding-layers:
 				--conversation-id $(CONVERSATION_IDX) \
 				--electrodes $(E_LIST) \
 				--emb-type $(EMB) \
-				--context-length $$context \
+				--context-length $(CNXT_LEN) \
 				--align-with $(ALIGN_WITH) \
 				--window-size $(WS) \
 				--word-value $(WV) \
 				--npermutations $(NPERM) \
 				--lags $(LAGS) \
 				--min-word-freq $(MWF) \
+				--fold-num $(FN) \
 				--pca-to $(PCA_TO) \
 				--layer-idx $$layer \
+				--token-type $(TT) \
 				--datum-mod $(DM) \
 				--model-mod $(MM) \
 				$(BC) \
@@ -270,10 +282,9 @@ run-encoding-layers:
 				$(SH) \
 				$(PSH) \
 				--normalize $(NM)\
-				--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-$(DM)-1024-$$layer \
+				--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-T$(TT)-$(DM)-mwf$(MWF)-l$$layer \
 				--output-prefix $(USR)-$(WS)ms-$(WV);\
 		done; \
-	done;
 
 # Recommended naming convention for output_folder
 #--output-prefix $(USR)-$(WS)ms-$(WV); \
@@ -401,11 +412,11 @@ LAG_TK_LABLS :=
 # LAG_TK_LABLS := --lag-tick-labels -300 -250 -200 -150 -120 -90 -60 -40 -20 {-10..10..2} 20 40 60 90 120 150 200 250 300
 
 # Plotting for type Final (final plots for 247) 
-# LAGS_PLT := {-300000..-150000..50000} -120000 -90000 {-60000..-20000..10000} {-10000..10000..25} {20000..60000..10000} 90000 120000 {150000..300000..50000}
-# LAGS_SHOW := -300000 -60000 -30000 {-10000..10000..25} 30000 60000 300000
-# X_VALS_SHOW := -16000 -14000 -12000 {-10000..10000..25} 12000 14000 16000
+# LAGS_PLT := {-60000..-20000..10000} {-10000..10000..25} {20000..60000..10000}
+# LAGS_SHOW := $(LAGS_PLT)
+# X_VALS_SHOW := -16000 -15000 -14000 -13000 -12000 {-10000..10000..25} 12000 13000 14000 15000 16000
 # LAG_TKS := --lag-ticks {-16..16..2}
-# LAG_TK_LABLS := --lag-tick-labels -300 -60 -30 {-10..10..2} 30 60 300
+# LAG_TK_LABLS := --lag-tick-labels -60 -40 -20 {-10..10..2} 20 40 60
 
 # zoomed-in version (from -2s to 2s)
 # LAGS_SHOW := {-2000..2000..25}
@@ -444,29 +455,13 @@ The number of sig elec files should also equal # of sid * # of keys
 plot-new:
 	rm -f results/figures/*
 	python scripts/tfsplt_new.py \
-		--sid 625 676 7170 798 \
+		--sid 625 \
 		--formats \
-			'results/tfs/kw-tfs-full-625-glove50-lag10k-25-all-aligned/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-gpt2-xl-lag10k-25-all-aligned/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-gpt2-xl-lag10k-25-all-aligned-shift-emb/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-glove50-lag10k-25-arb-aligned/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-glove50-lag10k-25-rand-aligned/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-glove50-lag10k-25-all-aligned/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10k-25-all-aligned/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10k-25-all-aligned-shift-emb/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-glove50-lag10k-25-arb-aligned/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-glove50-lag10k-25-rand-aligned/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-7170-glove50-lag10k-25-all-aligned/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-7170-gpt2-xl-lag10k-25-all-aligned/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-7170-gpt2-xl-lag10k-25-all-aligned-shift-emb/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-7170-glove50-lag10k-25-arb-aligned/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-7170-glove50-lag10k-25-rand-aligned/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-798-glove50-lag10k-25-all-aligned/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-798-gpt2-xl-lag10k-25-all-aligned/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-798-gpt2-xl-lag10k-25-all-aligned-shift-emb/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-798-glove50-lag10k-25-arb-aligned/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-798-glove50-lag10k-25-rand-aligned/*/*_%s.csv' \
-		--labels glove gpt2-n-1 gpt2-n arbitrary random glove gpt2-n-1 gpt2-n arbitrary random glove gpt2-n-1 gpt2-n arbitrary random glove gpt2-n-1 gpt2-n arbitrary random \
+			'results/tfs/kw-tfs-full-625-whisper-tiny.en-Tall-lag10k-25-all-mwf0-l2/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-625-whisper-tiny.en-Tall-lag10k-25-all-mwf0-l3/*/*_%s.csv' \
+			'results/tfs/stock-1024-48/kw-tfs-full-625-gpt2-xl-lag10k-25-all/*/*_%s.csv' \
+			'results/tfs/stock-1024-48/kw-tfs-full-625-gpt2-xl-lag10k-25-all-shift-emb/*/*_%s.csv' \
+		--labels whisper-l2 whisper-l3 gpt2-n-1 gpt2-n \
 		--keys comp prod \
 		$(SIG_FN) \
 		--fig-size $(FIG_SZ) \
@@ -476,7 +471,7 @@ plot-new:
 		$(LAG_TKS) \
 		$(LAG_TK_LABLS) \
 		$(PLT_PARAMS) \
-		--outfile results/figures/tfs-long-all.pdf
+		--outfile results/figures/tfs-625-whisper-gpt2-glove0.08.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
@@ -503,19 +498,24 @@ plot_layers:
 # Miscellaneous
 # -----------------------------------------------------------------------------
 
-# SP := 1
+SP := 1
+SIG_LAGS := {-2000..2000..25}
+SIG_LAGS := {-500..-100..25}
 
-# sig-test:
-# 	rm -f results/figures/*
-# 	python scripts/sig_test.py \
-# 		--sid 676 \
-# 		--formats \
-# 			'results/tfs/625-676/kw-tfs-full-676-glove50-lag10-25/kw-200ms-all-676/*_%s.csv' \
-# 		--labels glove \
-# 		--keys prod comp \
-# 		--values $(LAGS) \
-# 		$(SIG_FN) \
-# 		--sig-percents $(SP)
+sig-test:
+	rm -f results/figures/*
+	python scripts/tfsmis_sigtest.py \
+		--sid 798 \
+		--formats \
+			'results/tfs/20221201-gpt2-preds-top5/kw-tfs-full-798-glove50-lag10k-25-gpt2-xl-correct/*/*_%s.csv' \
+			'results/tfs/20221201-gpt2-preds-top5/kw-tfs-full-798-glove50-lag10k-25-gpt2-xl-incorrect/*/*_%s.csv' \
+		--labels correct incorrect \
+		--emb glove \
+		--keys prod comp \
+		--values $(LAGS) \
+		--sig-lags $(SIG_LAGS) \
+		$(SIG_FN) \
+		--sig-percents $(SP)
 
 
 # make sure the lags and the formats are in the same order
@@ -529,18 +529,14 @@ LAGS_FINAL := -99999999 # select all the lags that are concatenated (quardra)
 
 concat-lags:
 	python scripts/tfsenc_concat.py \
-		--formats \
-			'results/tfs/625-676/kw-tfs-full-676-gpt2-xl-ctx-128-lag10-25/kw-200ms-all-676/' \
-			'results/tfs/625-676/kw-tfs-full-676-gpt2-xl-ctx-128-lag60-10k/kw-200ms-all-676/' \
-			'results/tfs/625-676/kw-tfs-full-676-gpt2-xl-ctx-128-lag150-30k/kw-200ms-all-676/' \
-			'results/tfs/625-676/kw-tfs-full-676-gpt2-xl-ctx-128-lag300-50k/kw-200ms-all-676/' \
+		--format \
+			'results/tfs/kw-tfs-full-798-glove50-lag10k-25-rand-aligned/kw-200ms-all-798/' \
+			'results/tfs/kw-tfs-full-798-glove50-lag60k-10k-rand-aligned/kw-200ms-all-798/' \
 		--lags \
 			$(LAGS1) \
 			$(LAGS2) \
-			$(LAGS3) \
-			$(LAGS4) \
 		--lags-final $(LAGS_FINAL) \
-		--output-dir results/tfs/plot-676-gpt2-xl-ctx-128-quardra/kw-200ms-all-676/
+		--output-dir results/tfs/plot-798-rand-double/kw-200ms-all-798/
 
 
 # plot-autocor:

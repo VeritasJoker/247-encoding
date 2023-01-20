@@ -43,6 +43,7 @@ def parse_arguments():
     parser.add_argument("--pca-to", nargs="?", type=int, default=0)
 
     parser.add_argument("--align-with", nargs="*", type=str, default=None)
+    parser.add_argument("--token-type", nargs="?", type=str, default="first")
 
     parser.add_argument("--output-parent-dir", type=str, default="test")
     parser.add_argument("--pkl-identifier", type=str, default=None)

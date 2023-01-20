@@ -320,11 +320,11 @@ def mod_datum_by_preds(args, datum, emb_type):
 
     # modify datum based on correct or incorrect predictions
     if "incorrect" in args.datum_mod:  # incorrectly predicted (top 5 pred)
-        datum = datum[datum.true_pred_rank > 1]  # incorrect
-        print(f"Selected {len(datum.index)} top1 incorrect words")
+        datum = datum[datum.true_pred_rank > 5]  # incorrect
+        print(f"Selected {len(datum.index)} top5 incorrect words")
     elif "correct" in args.datum_mod:  # correctly predicted (top 5 pred)
-        datum = datum[datum.true_pred_rank <= 1]  # correct
-        print(f"Selected {len(datum.index)} top1 correct words")
+        datum = datum[datum.true_pred_rank <= 5]  # correct
+        print(f"Selected {len(datum.index)} top5 correct words")
     elif "top0.3" in args.datum_mod:  # top 30% pred prob
         top = datum.true_pred_prob.quantile(0.7)
         datum = datum[datum.true_pred_prob >= top]
@@ -337,10 +337,10 @@ def mod_datum_by_preds(args, datum, emb_type):
     elif (
         emb_type + "-pred"
     ) in args.datum_mod:  # for incorrectly predicted words, replace with top 1 pred (only used for podcast glove)
-        datum = datum[datum.true_pred_rank > 1]  # incorrect
-        print(f"Selected {len(datum.index)} top1 incorrect words")
+        datum = datum[datum.true_pred_rank > 5]  # incorrect
+        print(f"Selected {len(datum.index)} top5 incorrect words")
         glove = api.load("glove-wiki-gigaword-50")
-        datum["embeddings"] = datum.top1_pred.str.strip().apply(
+        datum.loc[:, "embeddings"] = datum.top1_pred.str.strip().apply(
             lambda x: get_vector(x.lower(), glove)
         )
         datum = datum[datum.embeddings.notna()]
@@ -390,7 +390,7 @@ def shift_emb(args, datum, mode="shift-emb"):
 
     before_shift_num = len(datum.index)
     for i in np.arange(shift_num):
-        datum["embeddings"] = datum.embeddings.shift(step)
+        datum.loc[:,"embeddings"] = datum.embeddings.shift(step)
         if (
             "blenderbot-small" in args.emb_type.lower()
             or "bert" in args.emb_type.lower()
@@ -426,9 +426,9 @@ def concat_emb(args, datum, mode="concat-emb"):
     shift_num, step = mod_datum_arg_parse(args, mode)
 
     before_shift_num = len(datum.index)
-    datum["embeddings_shifted"] = datum.embeddings
+    datum.loc[:,"embeddings_shifted"] = datum.embeddings
     for i in np.arange(shift_num):
-        datum["embeddings_shifted"] = datum.embeddings_shifted.shift(step)
+        datum.loc[:,"embeddings_shifted"] = datum.embeddings_shifted.shift(step)
         if (
             "blenderbot-small" in args.emb_type.lower()
             or "bert" in args.emb_type.lower()
@@ -448,7 +448,7 @@ def concat_emb(args, datum, mode="concat-emb"):
         def concat(x):
             return np.concatenate((x["embeddings"], x["embeddings_shifted"]))
 
-        datum["embeddings"] = datum.apply(concat, axis=1)
+        datum.loc[:,"embeddings"] = datum.apply(concat, axis=1)
 
     print(
         f"Concatenating resulted in {before_shift_num - len(datum.index)} less words"
@@ -529,6 +529,73 @@ def arb_emb(df):
     return df
 
 
+def mod_datum_by_token_type(args, datum):
+
+    if args.token_type == "all":
+        pass
+
+    elif args.token_type == "root":
+        print("Filter token_is_root")
+        datum = datum[datum[f"{args.emb_type}_token_is_root"]]
+
+    elif args.token_type == "first":
+        print("Filter by first token")
+        # (1) zeroth token way:
+        datum = datum[datum.token_idx == 0]
+        # (2) min token way:
+        # idx = (
+        #     datum.groupby(["adjusted_onset", "word"], sort=False)[
+        #         "token_idx"
+        #     ].transform(min)
+        #     == datum["token_idx"]
+        # )
+        # datum = datum[idx]
+        # (3) first token way:
+        # datum = datum[datum.token_idx.shift(1) >= datum.token_idx]
+
+    elif args.token_type == "last":
+        print("Filter by last token")
+        # (1) max token way:
+        idx = (
+            datum.groupby(["adjusted_onset", "word"], sort=False)[
+                "token_idx"
+            ].transform(max)
+            == datum["token_idx"]
+        )
+        datum = datum[idx]
+        # (2) last token way:
+        # datum = datum[datum.token_idx.shift(-1) <= datum.token_idx]
+
+    elif args.token_type == "mean":
+        print("Averaging embeddings across tokens")
+
+        # calculate mean embeddings
+        def mean_emb(embs):
+            return np.array(embs.values.tolist()).mean(axis=0).tolist()
+
+        mean_embs = datum.groupby(["adjusted_onset", "word"], sort=False)[
+            "embeddings"
+        ].apply(lambda x: mean_emb(x))
+        mean_embs = pd.DataFrame(mean_embs)
+
+        # replace embeddings
+        idx = (
+            datum.groupby(["adjusted_onset", "word"], sort=False)[
+                "token_idx"
+            ].transform(min)
+            == datum["token_idx"]
+        )
+        datum = datum[idx]
+        mean_embs.set_index(datum.index, inplace=True)
+        datum.loc[:, "embeddings"] = mean_embs.embeddings
+
+    else:
+        raise Exception("Invalid token type")
+
+    print(f"Datum length: {len(datum)}")
+    return datum
+
+
 def mod_datum(args, datum):
     """Filter the datum based on datum_mod argument
 
@@ -583,6 +650,9 @@ def mod_datum(args, datum):
             "glove" not in pred_type
         ), "Glove embeddings does not have predictions"
         datum = mod_datum_by_preds(args, datum, pred_type)
+
+    # modify datum based on token type
+    datum = mod_datum_by_token_type(args, datum)
 
     # else:
     #     raise Exception('Invalid Datum Modification')

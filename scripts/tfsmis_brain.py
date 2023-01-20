@@ -6,9 +6,11 @@ from scipy.stats import pearsonr
 import pickle
 
 
-sub = 676
+sub = 798
 
 keys = ["prod", "comp"]
+
+emb = "glove"
 
 corr = "ave"
 
@@ -89,17 +91,12 @@ df["prod"] = 100
 df["comp_sig"] = 0
 df["prod_sig"] = 0
 
-if sub != 798:
-    comp_sig_elecs = pd.read_csv(comp_sig_file)["electrode"].tolist()
-    prod_sig_elecs = pd.read_csv(prod_sig_file)["electrode"].tolist()
-else:
-    comp_sig_elecs = []
-    prod_sig_elecs = []
+comp_sig_elecs = pd.read_csv(comp_sig_file)["electrode"].tolist()
+prod_sig_elecs = pd.read_csv(prod_sig_file)["electrode"].tolist()
+
 
 ################# GET area for a curve #################
-area = pd.read_csv(
-    f"results/brainplot/area_-500_-100_n-1_gloveselect/{sub}_area_gptn-1_glove.csv"
-)
+area = pd.read_csv(f"results/brainplot/{sub}_area_{emb}.csv")
 area = area.drop(["label"], errors="ignore")
 area["elec_name"] = area.electrode.str[len(str(sub)) + 1 :]
 area.set_index("elec_name", inplace=True)
@@ -121,6 +118,9 @@ for row, values in df.iterrows():
     except:
         print(row, values["elec"])
 
+df["comp"] = df["comp"].fillna(10)
+df["prod"] = df["prod"].fillna(10)
+
 
 def save_area_results(sub, df, outname, mode, sig=False):
     df = df.loc[df[mode] < 100, :]
@@ -128,20 +128,20 @@ def save_area_results(sub, df, outname, mode, sig=False):
     if sig:
         sig_string = "_sig"
         df = df.loc[df[mode + sig_string] == 1, :]  # choose only sig electrodes
-    outname = f"{outname}{sub}_{mode}{sig_string}.txt"
+    outname = f"{outname}{sub}_{emb}_{mode}{sig_string}.txt"
 
     with open(outname, "w") as outfile:
         df = df.loc[:, [1, 2, 3, 4, mode]]
         df.to_string(outfile)
 
 
-outname = "results/brainplot/area_-500_-100_n-1_gloveselect/"
+outname = "results/brainplot/"
 if corr == "ind":
     outname = outname + "ind/"
 
 for key in keys:
     save_area_results(sub, df, outname, key)
-    # save_area_results(sub, df, outname, key, True)
+    save_area_results(sub, df, outname, key, True)
 
 
 ################# GET ERP correlation between prod/comp #################

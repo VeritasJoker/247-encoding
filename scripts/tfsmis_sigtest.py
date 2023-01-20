@@ -19,6 +19,7 @@ parser.add_argument("--values", nargs="+", type=float, required=True)
 parser.add_argument("--sig-lags", nargs="+", type=float, required=True)
 parser.add_argument("--keys", nargs="+", required=True)
 parser.add_argument("--sid", type=int, default=625)
+parser.add_argument("--emb", type=str, default="glove")
 parser.add_argument("--sig-elec-file", nargs="+", default="")
 parser.add_argument("--outfile", default="data/tfs-sig-file-")
 parser.add_argument("--sig-percents", nargs="+", type=float, required=True)
@@ -28,14 +29,16 @@ args = parser.parse_args()
 assert (
     len(args.sig_elec_file) == 2 or len(args.sig_elec_file) == 0
 ), "Need exactly 0 or 2 significant files"
-assert len(args.formats) == 1
+# assert len(args.formats) == 1
 assert str(args.sid) in args.formats[0]
 if len(args.sig_elec_file) == 2:
     assert (
-        str(args.sid) in args.sig_elec_file[0] and "prod" in args.sig_elec_file[0]
+        str(args.sid) in args.sig_elec_file[0]
+        and "comp" in args.sig_elec_file[0]
     ), "Make sure to use the right sig elec files"
     assert (
-        str(args.sid) in args.sig_elec_file[1] and "comp" in args.sig_elec_file[1]
+        str(args.sid) in args.sig_elec_file[1]
+        and "prod" in args.sig_elec_file[1]
     ), "Make sure to use the right sig elec files"
 
 
@@ -78,8 +81,8 @@ df_short = df.loc[:, chosen_lag_idx]  # chose from sig lags
 
 metric = "range"
 metric = "maxmin"
-metric = "diff"
 metric = "max"
+metric = "diff"
 
 if metric == "range":
     df["sort_metric"] = df_short.max(axis=1) - df.min(axis=1)  # row range max
@@ -98,30 +101,34 @@ elif metric == "diff":
     df_save = df_save.reset_index(level="label", drop=True)
 
     # calculate area max
-    df_save2 = df_short.groupby(level=["electrode", "mode"]).agg({"area": ["max"]})
+    df_save2 = df_short.groupby(level=["electrode", "mode"]).agg(
+        {"area": ["max"]}
+    )
     df_save2.columns = df_save2.columns.droplevel(0)
 
-    glove = True
-    if not glove:
+    glove = False
+    if glove:
         # calculate correlation max and choose only >=0.08
-        df_save3 = df.groupby(level=["electrode", "mode"]).max()
-        df_save3["max_cor"] = df_save3.max(axis=1)
-        df_save3 = df_save3[df_save3["max_cor"] >= 0.08]
+        pass
+        # df_save3 = df.groupby(level=["electrode", "mode"]).max()
+        # df_save3["max_cor"] = df_save3.max(axis=1)
+        # df_save3 = df_save3[df_save3["max_cor"] >= 0.08]
     else:
+        pass
         # choose only >= 0.08 based on glove
-        df_save3 = pd.read_csv(
-            f"results/brainplot/area_-500_-100_glove/{args.sid}_area_glove.csv"
-        )
-        df_save3.set_index(["electrode", "mode"], inplace=True)
-        df_save3 = df_save3.rename(columns={"area_diff": "max_cor"})
+        # df_save3 = pd.read_csv(
+        #     f"results/brainplot/area_-500_-100_glove/{args.sid}_area_glove.csv"
+        # )
+        # df_save3.set_index(["electrode", "mode"], inplace=True)
+        # df_save3 = df_save3.rename(columns={"area_diff": "max_cor"})
 
     # normalize area difference
     df_save = pd.concat([df_save, df_save2], axis=1)
-    df_save = pd.concat([df_save, df_save3.loc[:, "max_cor"]], axis=1).dropna()
+    # df_save = pd.concat([df_save, df_save3.loc[:, "max_cor"]], axis=1).dropna()
     df_save["area_diff"] = df_save["area"] * -1 / df_save["max"]
 
     df_save.loc[:, "area_diff"].to_csv(
-        f"results/brainplot/{args.sid}_area_gptn-1_glove.csv"
+        f"results/brainplot/{args.sid}_area_{args.emb}.csv"
     )
     breakpoint()
 
@@ -134,7 +141,9 @@ def gaussmix(data, mode, metric):
     else:
         sample = data.sort_metric.to_numpy(dtype=object).reshape(-1, 1)
 
-    gausclass = GaussianMixture(n_components=2, random_state=0).fit_predict(sample)
+    gausclass = GaussianMixture(n_components=2, random_state=0).fit_predict(
+        sample
+    )
     data = data.assign(gausclass=gausclass)
 
     if metric == "maxmin":
@@ -163,7 +172,9 @@ def save_sig_file(data, mode, sig_file=""):
     no_depth = True
     if no_depth:
         surface_rows = [
-            (label, elec, mode) for (label, elec, mode) in df.index if "D" not in elec
+            (label, elec, mode)
+            for (label, elec, mode) in df.index
+            if "D" not in elec
         ]
         data = data.loc[surface_rows, :]
     filetype = "-top-"
@@ -176,7 +187,9 @@ def save_sig_file(data, mode, sig_file=""):
         ]  # only keep significant elecs
         filetype = "-sig-"
     data = data[data.index.isin([mode], level="mode")]  # only keep prod or comp
-    df_partial = data.sort_values(by=["sort_metric"], ascending=False)  # sort by metric
+    df_partial = data.sort_values(
+        by=["sort_metric"], ascending=False
+    )  # sort by metric
     filetype = "-top-0.08-"
     df_partial = df_partial[df_partial.sort_metric >= 0.08]
     file_name = args.outfile + str(args.sid) + filetype + mode + ".csv"
