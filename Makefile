@@ -23,20 +23,20 @@ E_LIST := $(shell seq 1 125)
 BC := --bad-convos 38 39
 
 # 717 Electrode IDs
-# SID := 7170
-# E_LIST := $(shell seq 1 256)
-# BC :=
+SID := 7170
+E_LIST := $(shell seq 1 256)
+BC :=
 
 # 798 Electrode IDs
-# SID := 798
-# E_LIST := $(shell seq 1 198)
-# BC :=
+SID := 798
+E_LIST := $(shell seq 1 198)
+BC :=
 
 # Sig file will override whatever electrodes you choose
 SIG_FN := 
 # SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-comp.csv tfs-sig-file-625-sig-1.0-prod.csv tfs-sig-file-676-sig-1.0-comp.csv tfs-sig-file-676-sig-1.0-prod.csv tfs-sig-file-7170-sig-1.0-comp.csv tfs-sig-file-7170-sig-1.0-prod.csv tfs-sig-file-798-sig-1.0-comp.csv tfs-sig-file-798-sig-1.0-comp.csv
 # SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-comp.csv tfs-sig-file-625-sig-1.0-prod.csv
-# SIG_FN := --sig-elec-file tfs-sig-file-625-top-0.08-comp.csv tfs-sig-file-625-top-0.08-prod.csv
+# SIG_FN := --sig-elec-file tfs-625-comp-red.csv tfs-676-comp-red.csv tfs-7170-comp-red.csv tfs-798-comp-red.csv
 # SIG_FN := --sig-elec-file tfs-sig-file-625-region-ifg.csv tfs-sig-file-625-region-ifg.csv tfs-sig-file-676-region-ifg.csv tfs-sig-file-676-region-ifg.csv tfs-sig-file-7170-region-ifg.csv tfs-sig-file-7170-region-ifg.csv tfs-sig-file-798-region-ifg.csv tfs-sig-file-798-region-ifg.csv
 # SIG_FN := --sig-elec-file tfs-sig-file-625-all.csv tfs-sig-file-625-all.csv tfs-sig-file-676-all.csv tfs-sig-file-676-all.csv tfs-sig-file-7170-all.csv tfs-sig-file-7170-all.csv tfs-sig-file-798-all.csv tfs-sig-file-798-all.csv
 
@@ -66,7 +66,7 @@ SIG_FN :=
 ### podcast significant electrode list (if provided, override electrode IDs)
 # SIG_FN := --sig-elec-file podcast_160.csv
 
-PKL_IDENTIFIER := full
+PKL_IDENTIFIER := full-en
 # {full | trimmed | full_masked_l_r | full_masked_l | full_masked_r}
 
 # number of permutations (goes with SH and PSH)
@@ -78,9 +78,9 @@ LAGS := {-150000..150000..100} # lag60k-1k
 LAGS := {-500..500..5} # lag500-5
 LAGS := -300000 -250000 -200000 200000 250000 300000 # lag300k-50k
 LAGS := -150000 -120000 -90000 90000 120000 150000 # lag150k-30k
+LAGS := -60000 -50000 -40000 -30000 -20000 20000 30000 40000 50000 60000 # lag60k-10k
 LAGS := {-2000..2000..25} # lag2k-25
 LAGS := {-10000..10000..25} # lag10k-25
-LAGS := -60000 -50000 -40000 -30000 -20000 20000 30000 40000 50000 60000 # lag60k-10k
 
 # Conversation ID (Choose 0 to run for all conversations)
 CONVERSATION_IDX := 0
@@ -109,7 +109,7 @@ ALIGN_WITH := $(EMB)
 
 # Choose layer of embeddings to use
 # {1 for glove, 48 for gpt2, 16 for bbot, 24 for bert-lg}
-LAYER_IDX := 0 1 2 3 4
+LAYER_IDX := 4
 
 # Choose whether to PCA (0 or for no pca)
 PCA_TO := 50
@@ -141,8 +141,8 @@ NM := l2
 TT := root
 TT := first
 TT := last
-TT := mean
 TT := all
+TT := mean
 
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
@@ -152,6 +152,8 @@ CMD := sbatch submit1.sh
 # {echo | python | sbatch submit1.sh}
 
 
+# Window size
+WN := 1 3 6 9 12
 
 ############## Datum Modifications ##############
 
@@ -194,7 +196,7 @@ actually predicted by gpt2} (only used for podcast glove)
 
 DM := lag2k-25-incorrect
 DM := lag2k-25-all
-DM := lag60k-10k-all
+DM := lag10k-25-all
 
 ############## Model Modification ##############
 # {best-lag: run encoding using the best lag (lag model with highest correlation)}
@@ -244,6 +246,7 @@ run-encoding:
 		--token-type $(TT) \
 		--datum-mod $(DM) \
 		--model-mod $(MM) \
+		--window-num $(WN) \
 		$(BC) \
 		$(SIG_FN) \
 		$(SH) \
@@ -256,34 +259,37 @@ run-encoding:
 run-encoding-layers:
 	mkdir -p logs
 		for layer in $(LAYER_IDX); do\
-			$(CMD) scripts/$(FILE).py \
-				--project-id $(PRJCT_ID) \
-				--pkl-identifier $(PKL_IDENTIFIER) \
-				--datum-emb-fn $(DS) \
-				--sid $(SID) \
-				--conversation-id $(CONVERSATION_IDX) \
-				--electrodes $(E_LIST) \
-				--emb-type $(EMB) \
-				--context-length $(CNXT_LEN) \
-				--align-with $(ALIGN_WITH) \
-				--window-size $(WS) \
-				--word-value $(WV) \
-				--npermutations $(NPERM) \
-				--lags $(LAGS) \
-				--min-word-freq $(MWF) \
-				--fold-num $(FN) \
-				--pca-to $(PCA_TO) \
-				--layer-idx $$layer \
-				--token-type $(TT) \
-				--datum-mod $(DM) \
-				--model-mod $(MM) \
-				$(BC) \
-				$(SIG_FN) \
-				$(SH) \
-				$(PSH) \
-				--normalize $(NM)\
-				--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-T$(TT)-$(DM)-mwf$(MWF)-l$$layer \
-				--output-prefix $(USR)-$(WS)ms-$(WV);\
+			for wn in $(WN); do\
+				$(CMD) scripts/$(FILE).py \
+					--project-id $(PRJCT_ID) \
+					--pkl-identifier $(PKL_IDENTIFIER) \
+					--datum-emb-fn $(DS) \
+					--sid $(SID) \
+					--conversation-id $(CONVERSATION_IDX) \
+					--electrodes $(E_LIST) \
+					--emb-type $(EMB) \
+					--context-length $(CNXT_LEN) \
+					--align-with $(ALIGN_WITH) \
+					--window-size $(WS) \
+					--word-value $(WV) \
+					--npermutations $(NPERM) \
+					--lags $(LAGS) \
+					--min-word-freq $(MWF) \
+					--fold-num $(FN) \
+					--pca-to $(PCA_TO) \
+					--layer-idx $$layer \
+					--token-type $(TT) \
+					--datum-mod $(DM) \
+					--model-mod $(MM) \
+					--window-num $$wn \
+					$(BC) \
+					$(SIG_FN) \
+					$(SH) \
+					$(PSH) \
+					--normalize $(NM)\
+					--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-l$$layer-wn$$wn \
+					--output-prefix $(USR)-$(WS)ms-$(WV);\
+			done; \
 		done; \
 
 # Recommended naming convention for output_folder
@@ -419,8 +425,8 @@ LAG_TK_LABLS :=
 # LAG_TK_LABLS := --lag-tick-labels -60 -40 -20 {-10..10..2} 20 40 60
 
 # zoomed-in version (from -2s to 2s)
-# LAGS_SHOW := {-2000..2000..25}
-# X_VALS_SHOW := {-2000..2000..25}
+# LAGS_SHOW := {-5000..5000..25}
+# X_VALS_SHOW := {-5000..5000..25}
 # LAG_TKS := 
 # LAG_TK_LABLS :=
 
@@ -438,7 +444,7 @@ LAG_TK_LABLS :=
 # {  | --split-by labels | --split-by keys }
 
 PLT_PARAMS := --lc-by labels --ls-by keys # plot for just one key (podcast plots)
-PLT_PARAMS := --lc-by labels --ls-by keys --split horizontal --split-by keys # plot for prod+comp (247 plots)
+# PLT_PARAMS := --lc-by labels --ls-by keys --split horizontal --split-by keys # plot for prod+comp (247 plots)
 
 # Figure Size (width height)
 FIG_SZ:= 15 6
@@ -455,14 +461,18 @@ The number of sig elec files should also equal # of sid * # of keys
 plot-new:
 	rm -f results/figures/*
 	python scripts/tfsplt_new.py \
-		--sid 625 \
+		--sid 625 676 7170 798 \
 		--formats \
-			'results/tfs/kw-tfs-full-625-whisper-tiny.en-Tall-lag10k-25-all-mwf0-l2/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-whisper-tiny.en-Tall-lag10k-25-all-mwf0-l3/*/*_%s.csv' \
-			'results/tfs/stock-1024-48/kw-tfs-full-625-gpt2-xl-lag10k-25-all/*/*_%s.csv' \
-			'results/tfs/stock-1024-48/kw-tfs-full-625-gpt2-xl-lag10k-25-all-shift-emb/*/*_%s.csv' \
-		--labels whisper-l2 whisper-l3 gpt2-n-1 gpt2-n \
-		--keys comp prod \
+			'results/tfs/stock-1024-24/kw-tfs-full-625-gpt2-xl-lag10k-25-all-shift-emb/*/*_%s.csv' \
+			'results/tfs/20230121-whisper-encoder/kw-tfs-full-en-625-whisper-tiny.en-Tall-lag10k-25-all-mwf0-l4/*/*_%s.csv' \
+			'results/tfs/stock-1024-24/kw-tfs-full-676-gpt2-xl-lag10k-25-all-shift-emb/*/*_%s.csv' \
+			'results/tfs/20230121-whisper-encoder/kw-tfs-full-en-676-whisper-tiny.en-Tall-lag10k-25-all-mwf0-l4/*/*_%s.csv' \
+			'results/tfs/stock-1024-24/kw-tfs-full-7170-gpt2-xl-lag10k-25-all-shift-emb/*/*_%s.csv' \
+			'results/tfs/20230121-whisper-encoder/kw-tfs-full-en-7170-whisper-tiny.en-Tall-lag10k-25-all-mwf0-l4/*/*_%s.csv' \
+			'results/tfs/stock-1024-24/kw-tfs-full-798-gpt2-xl-lag10k-25-all-shift-emb/*/*_%s.csv' \
+			'results/tfs/20230121-whisper-encoder/kw-tfs-full-en-798-whisper-tiny.en-Tall-lag10k-25-all-mwf0-l4/*/*_%s.csv' \
+		--labels gpt2n-24 whisper-en-4 gpt2n-24 whisper-en-4 gpt2n-24 whisper-en-4 gpt2n-24 whisper-en-4  \
+		--keys prod \
 		$(SIG_FN) \
 		--fig-size $(FIG_SZ) \
 		--lags-plot $(LAGS_PLT) \
@@ -471,7 +481,7 @@ plot-new:
 		$(LAG_TKS) \
 		$(LAG_TK_LABLS) \
 		$(PLT_PARAMS) \
-		--outfile results/figures/tfs-625-whisper-gpt2-glove0.08.pdf
+		--outfile results/figures/whispergrant-prod-blue.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
@@ -530,13 +540,13 @@ LAGS_FINAL := -99999999 # select all the lags that are concatenated (quardra)
 concat-lags:
 	python scripts/tfsenc_concat.py \
 		--format \
-			'results/tfs/kw-tfs-full-798-glove50-lag10k-25-rand-aligned/kw-200ms-all-798/' \
-			'results/tfs/kw-tfs-full-798-glove50-lag60k-10k-rand-aligned/kw-200ms-all-798/' \
+			'results/tfs/kw-tfs-full-798-whisper-tiny.en-Tall-lag10k-25-all-mwf0-l0/kw-200ms-all-798/' \
+			'results/tfs/kw-tfs-full-798-whisper-tiny.en-Tall-lag60k-10k-all-mwf0-l0/kw-200ms-all-798/' \
 		--lags \
 			$(LAGS1) \
 			$(LAGS2) \
 		--lags-final $(LAGS_FINAL) \
-		--output-dir results/tfs/plot-798-rand-double/kw-200ms-all-798/
+		--output-dir results/tfs/plot-798-whisper-tiny.en-double-l0/kw-200ms-all-798/
 
 
 # plot-autocor:

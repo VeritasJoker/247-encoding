@@ -1,6 +1,7 @@
 import os
 import string
 from multiprocessing.spawn import is_forking
+from sklearn.decomposition import PCA
 
 import numpy as np
 import pandas as pd
@@ -69,9 +70,7 @@ def make_input_from_tokens(token_list):
     Returns:
         [type]: [description]
     """
-    windows = [
-        tuple(token_list[x : x + 2]) for x in range(len(token_list) - 2 + 1)
-    ]
+    windows = [tuple(token_list[x : x + 2]) for x in range(len(token_list) - 2 + 1)]
 
     return windows
 
@@ -115,9 +114,7 @@ def add_signal_length(df, stitch):
     df["conv_signal_length"] = np.nan
 
     for idx, conv in enumerate(df.conversation_id.unique()):
-        df.loc[
-            df.conversation_id == conv, "conv_signal_length"
-        ] = signal_lengths[idx]
+        df.loc[df.conversation_id == conv, "conv_signal_length"] = signal_lengths[idx]
 
     return df
 
@@ -174,12 +171,8 @@ def process_datum(args, df, stitch):
 
     df = add_signal_length(df, stitch)
 
-    df = df.loc[
-        ~df["conversation_id"].isin(args.bad_convos)
-    ]  # filter bad convos
-    assert (
-        len(stitch) - len(args.bad_convos) == df.conversation_id.nunique() + 1
-    )
+    df = df.loc[~df["conversation_id"].isin(args.bad_convos)]  # filter bad convos
+    assert len(stitch) - len(args.bad_convos) == df.conversation_id.nunique() + 1
 
     if args.project_id == "tfs" and not all(
         [item in df.columns for item in ["adjusted_onset", "adjusted_offset"]]
@@ -313,9 +306,7 @@ def mod_datum_by_preds(args, datum, emb_type):
         )  # delete the current top predictions if any
         datum = datum[datum.adjusted_onset.notna()]
         second_datum = second_datum[second_datum.adjusted_onset.notna()]
-        datum = datum.merge(
-            second_datum, how="inner", on=["adjusted_onset", "word"]
-        )
+        datum = datum.merge(second_datum, how="inner", on=["adjusted_onset", "word"])
     print(f"Using {emb_type} predictions")
 
     # modify datum based on correct or incorrect predictions
@@ -390,7 +381,7 @@ def shift_emb(args, datum, mode="shift-emb"):
 
     before_shift_num = len(datum.index)
     for i in np.arange(shift_num):
-        datum.loc[:,"embeddings"] = datum.embeddings.shift(step)
+        datum.loc[:, "embeddings"] = datum.embeddings.shift(step)
         if (
             "blenderbot-small" in args.emb_type.lower()
             or "bert" in args.emb_type.lower()
@@ -398,17 +389,12 @@ def shift_emb(args, datum, mode="shift-emb"):
             datum = datum[
                 (
                     datum.production.shift(step) == datum.production
-                    and datum.conversation_id.shift(step)
-                    == datum.conversation_id
+                    and datum.conversation_id.shift(step) == datum.conversation_id
                 )
             ]
         else:
-            datum = datum[
-                datum.conversation_id.shift(step) == datum.conversation_id
-            ]
-    print(
-        f"Shifting resulted in {before_shift_num - len(datum.index)} less words"
-    )
+            datum = datum[datum.conversation_id.shift(step) == datum.conversation_id]
+    print(f"Shifting resulted in {before_shift_num - len(datum.index)} less words")
     return datum
 
 
@@ -426,9 +412,9 @@ def concat_emb(args, datum, mode="concat-emb"):
     shift_num, step = mod_datum_arg_parse(args, mode)
 
     before_shift_num = len(datum.index)
-    datum.loc[:,"embeddings_shifted"] = datum.embeddings
+    datum.loc[:, "embeddings_shifted"] = datum.embeddings
     for i in np.arange(shift_num):
-        datum.loc[:,"embeddings_shifted"] = datum.embeddings_shifted.shift(step)
+        datum.loc[:, "embeddings_shifted"] = datum.embeddings_shifted.shift(step)
         if (
             "blenderbot-small" in args.emb_type.lower()
             or "bert" in args.emb_type.lower()
@@ -436,23 +422,18 @@ def concat_emb(args, datum, mode="concat-emb"):
             datum = datum[
                 (
                     datum.production.shift(step) == datum.production
-                    and datum.conversation_id.shift(step)
-                    == datum.conversation_id
+                    and datum.conversation_id.shift(step) == datum.conversation_id
                 )
             ]
         else:
-            datum = datum[
-                datum.conversation_id.shift(step) == datum.conversation_id
-            ]
+            datum = datum[datum.conversation_id.shift(step) == datum.conversation_id]
 
         def concat(x):
             return np.concatenate((x["embeddings"], x["embeddings_shifted"]))
 
-        datum.loc[:,"embeddings"] = datum.apply(concat, axis=1)
+        datum.loc[:, "embeddings"] = datum.apply(concat, axis=1)
 
-    print(
-        f"Concatenating resulted in {before_shift_num - len(datum.index)} less words"
-    )
+    print(f"Concatenating resulted in {before_shift_num - len(datum.index)} less words")
 
     return datum
 
@@ -471,14 +452,8 @@ def trim_datum(args, datum):
     lag = int(args.lags[-1] / 1000 * 512)  # trim edges based on lag
     original_len = len(datum.index)
     datum = datum.loc[
-        (
-            (datum["adjusted_onset"] - lag)
-            >= (datum["convo_onset"] + half_window + 1)
-        )
-        & (
-            (datum["adjusted_onset"] + lag)
-            <= (datum["convo_offset"] - half_window - 1)
-        )
+        ((datum["adjusted_onset"] - lag) >= (datum["convo_onset"] + half_window + 1))
+        & ((datum["adjusted_onset"] + lag) <= (datum["convo_offset"] - half_window - 1))
     ]
     new_datum_len = len(datum.index)
     print(
@@ -620,9 +595,7 @@ def mod_datum(args, datum):
         datum = datum[datum.conversation_id == args.conversation_id]
         datum.convo_offset = datum["convo_offset"] - datum["convo_onset"]
         datum.convo_onset = 0
-        print(
-            f"Running conversation {args.conversation_id} with {len(datum)} words"
-        )
+        print(f"Running conversation {args.conversation_id} with {len(datum)} words")
 
     if "shift-emb" in args.datum_mod:  # shift embeddings to include word
         datum = shift_emb(args, datum, "shift-emb")
@@ -646,9 +619,7 @@ def mod_datum(args, datum):
             pred_type = "gpt2-xl"
         elif "blenerbot-small" in args.datum_mod:
             pred_type = "blenderbot-small"
-        assert (
-            "glove" not in pred_type
-        ), "Glove embeddings does not have predictions"
+        assert "glove" not in pred_type, "Glove embeddings does not have predictions"
         datum = mod_datum_by_preds(args, datum, pred_type)
 
     # modify datum based on token type
@@ -658,6 +629,24 @@ def mod_datum(args, datum):
     #     raise Exception('Invalid Datum Modification')
     assert len(datum.index) > 0, "Empty Datum"
     return datum
+
+
+def run_pca(pca_to, df, window_num):
+    pca = PCA(n_components=pca_to, svd_solver="auto", whiten=True)
+
+    df_emb = df["embeddings"]
+    embs = np.vstack(df_emb.values)
+
+    assert embs.shape[1] % 12 == 0, "Something wrong with emb shape"
+
+    emb_dim = embs.shape[1] / 12
+
+    embs = embs[:, int(emb_dim * window_num * -1) :]
+    print(f"PCA from {embs.shape[1]} to {pca_to}")
+    pca_output = pca.fit_transform(embs)
+    df["embeddings"] = pca_output.tolist()
+
+    return df
 
 
 def read_datum(args, stitch):
@@ -688,5 +677,10 @@ def read_datum(args, stitch):
     print(f"After filtering: Datum now has {len(df)} words")
 
     df = mod_datum(args, df)  # further filter datum based on datum_mod argument
+
+    if len(df.embeddings.iloc[0]) >= 2000:  # emb dim too big
+        # HACK
+        print(f"Running early pca due to big embedding dimension")
+        df = run_pca(args.pca_to, df, args.window_num)
 
     return df

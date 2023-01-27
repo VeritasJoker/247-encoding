@@ -167,6 +167,7 @@ cmap, smap = get_cmap_smap(args)
 
 sigelecs = {}
 multiple_sid = False  # only 1 subject
+huge_sig_file = pd.DataFrame()
 if len(args.sid) > 1:
     multiple_sid = True  # multiple subjects
 if len(args.sig_elec_file) == 0:
@@ -276,6 +277,22 @@ if len(args.lags_show) < len(
     ), "args.lags_show length must be the same size as trimmed df column number"
 
 
+
+breakpoint()
+df["max"] = df.max(axis=1)
+grouped = df["max"].groupby(level=[1])
+df["sig"] = grouped.transform(lambda x: max(x) >= 0.15)
+df = df[df.sig]
+
+df["max_diff"] = df["max"].groupby(level=[1]).diff()
+df.sort_index(level=["electrode"], inplace=True)
+df.fillna(method="bfill", inplace=True)
+if "blue" in args.outfile:  # gpt2 higher
+    df = df[df.max_diff < 0]
+elif "red" in args.outfile:  # whisper higher
+    df = df[df.max_diff > 0]
+
+df = df.drop(["sig", "max", "max_diff"], axis=1, errors="ignore")
 # df = df[df.max(axis=1) >= 0.08]
 # df = df[df[160] <= 0.04]
 # df = df[df[0] <= 0.04]
@@ -345,6 +362,9 @@ def plot_average(pdf):
         if len(args.lag_ticks) != 0:
             ax.set_xticks(args.lag_ticks)
             ax.set_xticklabels(args.lag_tick_labels)
+    ax.yaxis.label.set_size(15)
+    ax.xaxis.label.set_size(15)
+    ax.tick_params(axis="both", which="major", labelsize=15)
     ax.axhline(0, ls="dashed", alpha=0.3, c="k")
     ax.axvline(0, ls="dashed", alpha=0.3, c="k")
     ax.legend(loc="upper right", frameon=False)
@@ -434,13 +454,13 @@ def plot_average_split_by_label(pdf, split_dir):
 def plot_electrodes(pdf, sig_file):
 
     print("Plotting Individual Electrodes")
-    sig_file = sig_file.sort_values(by=["area"], ascending=True)
-    # for (electrode, sid), subdf in df.groupby(["electrode", "sid"], axis=0):
-    for _, values in sig_file.iterrows():  # order by single sig list
-        sid = values["subject"]
-        electrode = values["sid_electrode"]
-        area = values["area"]
-        subdf = df.xs(electrode, level="electrode", drop_level=False)
+    # sig_file = sig_file.sort_values(by=["area"], ascending=True)
+    for (electrode, sid), subdf in df.groupby(["electrode", "sid"], axis=0):
+        # for _, values in sig_file.iterrows():  # order by single sig list
+        # sid = values["subject"]
+        # electrode = values["sid_electrode"]
+        # area = values["area"]
+        # subdf = df.xs(electrode, level="electrode", drop_level=False)
         fig, ax = plt.subplots(figsize=fig_size)
         # axins = inset_axes(ax, width=3, height=1.5, borderpad=4)
         for (label, _, mode, _), values in subdf.iterrows():
@@ -461,13 +481,16 @@ def plot_electrodes(pdf, sig_file):
             ax.set_xticklabels(args.lag_tick_labels)
         ax.axhline(0, ls="dashed", alpha=0.3, c="k")
         ax.axvline(0, ls="dashed", alpha=0.3, c="k")
-        ax.set_ylim(vmin - 0.05, vmax + 0.05)  # .35
+        # ax.set_ylim(-0.05, 0.5)  # .35
         ax.legend(loc="upper left", frameon=False)
         ax.set(
             xlabel="Lag (s)",
             ylabel="Correlation (r)",
             title=f"{sid} {electrode}",
         )
+        ax.yaxis.label.set_size(15)
+        ax.xaxis.label.set_size(15)
+        ax.tick_params(axis="both", which="major", labelsize=15)
         imname = get_elecbrain(electrode)
         if os.path.isfile(imname):
             arr_image = plt.imread(imname, format="png")
@@ -515,7 +538,7 @@ def plot_electrodes_split_by_key(pdf, split_dir):
             ax.axhline(0, ls="dashed", alpha=0.3, c="k")
             ax.axvline(0, ls="dashed", alpha=0.3, c="k")
             ax.legend(loc="upper left", frameon=False)
-            ax.set_ylim(vmin - 0.05, vmax + 0.05)  # .35
+            ax.set_ylim(-0.05, vmax + 0.05)  # .35
             ax.set(
                 xlabel="Lag (s)",
                 ylabel="Correlation (r)",

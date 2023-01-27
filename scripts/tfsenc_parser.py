@@ -18,6 +18,7 @@ def parse_arguments():
 
     parser.add_argument("--word-value", type=str, default="all")
     parser.add_argument("--window-size", type=int, default=200)
+    parser.add_argument("--window-num", type=int, default=12)
 
     group1 = parser.add_mutually_exclusive_group()
     group1.add_argument("--shuffle", action="store_true", default=False)
