@@ -631,19 +631,39 @@ def mod_datum(args, datum):
     return datum
 
 
-def run_pca(pca_to, df, window_num):
+def run_pca(args, df):
+    pca_to = args.pca_to
     pca = PCA(n_components=pca_to, svd_solver="auto", whiten=True)
 
     df_emb = df["embeddings"]
     embs = np.vstack(df_emb.values)
 
-    assert embs.shape[1] % 12 == 0, "Something wrong with emb shape"
+    # assert embs.shape[1] % 12 == 0, "Something wrong with emb shape"
 
-    emb_dim = embs.shape[1] / 12
+    if "-" in args.window_num:  # range
+        start_win = args.window_num[: args.window_num.find("-")]
+        end_win = args.window_num[args.window_num.find("-") + 1 :]
+    else:  # onewindow
+        start_win = end_win = args.window_num
+    assert start_win.isdigit()
+    assert end_win.isdigit()
+    emb_dim = 384  ## HACK whisper-tiny.en
+    if "offset" in args.pkl_identifier:
+        start_idx = int(end_win) * emb_dim * -1
+        end_idx = (int(start_win) - 1) * emb_dim * -1
+        if start_win == "1":
+            embs = embs[:, start_idx:]
+        else:
+            embs = embs[:, start_idx:end_idx]
+    else:
+        start_idx = (int(start_win) - 1) * emb_dim
+        end_idx = int(end_win) * emb_dim
+        embs = embs[:, start_idx:end_idx]
 
-    embs = embs[:, int(emb_dim * window_num * -1) :]
     print(f"PCA from {embs.shape[1]} to {pca_to}")
     pca_output = pca.fit_transform(embs)
+    print(f"PCA explained variance: {sum(pca.explained_variance_)}")
+    print(f"PCA explained variance ratio: {sum(pca.explained_variance_ratio_)}")
     df["embeddings"] = pca_output.tolist()
 
     return df
@@ -681,6 +701,6 @@ def read_datum(args, stitch):
     if len(df.embeddings.iloc[0]) >= 2000:  # emb dim too big
         # HACK
         print(f"Running early pca due to big embedding dimension")
-        df = run_pca(args.pca_to, df, args.window_num)
+        df = run_pca(args, df)
 
     return df

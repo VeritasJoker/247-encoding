@@ -18,19 +18,19 @@ E_LIST := $(shell seq 1 105)
 BC := 
 
 # 676 Electrode IDs
-SID := 676
-E_LIST := $(shell seq 1 125)
-BC := --bad-convos 38 39
+# SID := 676
+# E_LIST := $(shell seq 1 125)
+# BC := --bad-convos 38 39
 
 # 717 Electrode IDs
-SID := 7170
-E_LIST := $(shell seq 1 256)
-BC :=
+# SID := 7170
+# E_LIST := $(shell seq 1 256)
+# BC :=
 
 # 798 Electrode IDs
-SID := 798
-E_LIST := $(shell seq 1 198)
-BC :=
+# SID := 798
+# E_LIST := $(shell seq 1 198)
+# BC :=
 
 # Sig file will override whatever electrodes you choose
 SIG_FN := 
@@ -66,7 +66,7 @@ SIG_FN :=
 ### podcast significant electrode list (if provided, override electrode IDs)
 # SIG_FN := --sig-elec-file podcast_160.csv
 
-PKL_IDENTIFIER := full-en
+PKL_IDENTIFIER := full-en-onset
 # {full | trimmed | full_masked_l_r | full_masked_l | full_masked_r}
 
 # number of permutations (goes with SH and PSH)
@@ -146,14 +146,14 @@ TT := mean
 
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
-CMD := python
 CMD := echo
 CMD := sbatch submit1.sh
+CMD := python
 # {echo | python | sbatch submit1.sh}
 
 
 # Window size
-WN := 1 3 6 9 12
+WN := 1
 
 ############## Datum Modifications ##############
 
@@ -425,8 +425,8 @@ LAG_TK_LABLS :=
 # LAG_TK_LABLS := --lag-tick-labels -60 -40 -20 {-10..10..2} 20 40 60
 
 # zoomed-in version (from -2s to 2s)
-# LAGS_SHOW := {-5000..5000..25}
-# X_VALS_SHOW := {-5000..5000..25}
+# LAGS_SHOW := {-2000..2000..25}
+# X_VALS_SHOW := {-2000..2000..25}
 # LAG_TKS := 
 # LAG_TK_LABLS :=
 
@@ -444,7 +444,7 @@ LAG_TK_LABLS :=
 # {  | --split-by labels | --split-by keys }
 
 PLT_PARAMS := --lc-by labels --ls-by keys # plot for just one key (podcast plots)
-# PLT_PARAMS := --lc-by labels --ls-by keys --split horizontal --split-by keys # plot for prod+comp (247 plots)
+PLT_PARAMS := --lc-by labels --ls-by keys --split horizontal --split-by keys # plot for prod+comp (247 plots)
 
 # Figure Size (width height)
 FIG_SZ:= 15 6
@@ -463,16 +463,40 @@ plot-new:
 	python scripts/tfsplt_new.py \
 		--sid 625 676 7170 798 \
 		--formats \
-			'results/tfs/stock-1024-24/kw-tfs-full-625-gpt2-xl-lag10k-25-all-shift-emb/*/*_%s.csv' \
-			'results/tfs/20230121-whisper-encoder/kw-tfs-full-en-625-whisper-tiny.en-Tall-lag10k-25-all-mwf0-l4/*/*_%s.csv' \
-			'results/tfs/stock-1024-24/kw-tfs-full-676-gpt2-xl-lag10k-25-all-shift-emb/*/*_%s.csv' \
-			'results/tfs/20230121-whisper-encoder/kw-tfs-full-en-676-whisper-tiny.en-Tall-lag10k-25-all-mwf0-l4/*/*_%s.csv' \
-			'results/tfs/stock-1024-24/kw-tfs-full-7170-gpt2-xl-lag10k-25-all-shift-emb/*/*_%s.csv' \
-			'results/tfs/20230121-whisper-encoder/kw-tfs-full-en-7170-whisper-tiny.en-Tall-lag10k-25-all-mwf0-l4/*/*_%s.csv' \
-			'results/tfs/stock-1024-24/kw-tfs-full-798-gpt2-xl-lag10k-25-all-shift-emb/*/*_%s.csv' \
-			'results/tfs/20230121-whisper-encoder/kw-tfs-full-en-798-whisper-tiny.en-Tall-lag10k-25-all-mwf0-l4/*/*_%s.csv' \
-		--labels gpt2n-24 whisper-en-4 gpt2n-24 whisper-en-4 gpt2n-24 whisper-en-4 gpt2n-24 whisper-en-4  \
-		--keys prod \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-625-whisper-tiny.en-l2-wn1/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-625-whisper-tiny.en-l2-wn1-2/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-625-whisper-tiny.en-l2-wn1-3/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-625-whisper-tiny.en-l2-wn1-4/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-625-whisper-tiny.en-l2-wn1-5/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-625-whisper-tiny.en-l2-wn1-6/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-625-whisper-tiny.en-l2-wn1-9/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-625-whisper-tiny.en-l2-wn1-12/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-676-whisper-tiny.en-l2-wn1/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-676-whisper-tiny.en-l2-wn1-2/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-676-whisper-tiny.en-l2-wn1-3/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-676-whisper-tiny.en-l2-wn1-4/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-676-whisper-tiny.en-l2-wn1-5/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-676-whisper-tiny.en-l2-wn1-6/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-676-whisper-tiny.en-l2-wn1-9/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-676-whisper-tiny.en-l2-wn1-12/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-7170-whisper-tiny.en-l2-wn1/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-7170-whisper-tiny.en-l2-wn1-2/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-7170-whisper-tiny.en-l2-wn1-3/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-7170-whisper-tiny.en-l2-wn1-4/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-7170-whisper-tiny.en-l2-wn1-5/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-7170-whisper-tiny.en-l2-wn1-6/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-7170-whisper-tiny.en-l2-wn1-9/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-7170-whisper-tiny.en-l2-wn1-12/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-798-whisper-tiny.en-l2-wn1/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-798-whisper-tiny.en-l2-wn1-2/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-798-whisper-tiny.en-l2-wn1-3/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-798-whisper-tiny.en-l2-wn1-4/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-798-whisper-tiny.en-l2-wn1-5/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-798-whisper-tiny.en-l2-wn1-6/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-798-whisper-tiny.en-l2-wn1-9/*/*_%s.csv' \
+			'results/tfs/20230127-whisper-encoder-offset/kw-tfs-full-en-798-whisper-tiny.en-l2-wn1-12/*/*_%s.csv' \
+		--labels w1 w1-2 w1-3 w1-4 w1-5 w1-6 w1-9 w1-12 w1 w1-2 w1-3 w1-4 w1-5 w1-6 w1-9 w1-12 w1 w1-2 w1-3 w1-4 w1-5 w1-6 w1-9 w1-12 w1 w1-2 w1-3 w1-4 w1-5 w1-6 w1-9 w1-12\
+		--keys comp prod \
 		$(SIG_FN) \
 		--fig-size $(FIG_SZ) \
 		--lags-plot $(LAGS_PLT) \
@@ -481,7 +505,7 @@ plot-new:
 		$(LAG_TKS) \
 		$(LAG_TK_LABLS) \
 		$(PLT_PARAMS) \
-		--outfile results/figures/whispergrant-prod-blue.pdf
+		--outfile results/figures/tfs-whisper-enonly-offset-windows-sig.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
