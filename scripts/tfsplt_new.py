@@ -137,12 +137,16 @@ def get_cmap_smap(args):
             for label, style in zip(unique_labels, styles):
                 cmap[(label, key)] = color
                 smap[(label, key)] = style
-    elif args.lc_by == args.ls_by == "labels":  # both line color and style by labels
+    elif (
+        args.lc_by == args.ls_by == "labels"
+    ):  # both line color and style by labels
         for label, color, style in zip(unique_labels, colors, styles):
             for key in unique_keys:
                 cmap[(label, key)] = color
                 smap[(label, key)] = style
-    elif args.lc_by == args.ls_by == "keys":  # both line color and style by keys
+    elif (
+        args.lc_by == args.ls_by == "keys"
+    ):  # both line color and style by keys
         for key, color, style in zip(unique_keys, colors, styles):
             for label in unique_labels:
                 cmap[(label, key)] = color
@@ -190,7 +194,9 @@ elif len(args.sig_elec_file) == len(args.sid) * len(args.keys):
             multiple_sid = True
         huge_sig_file = pd.concat([huge_sig_file, sig_file])
 else:
-    raise Exception("Need a significant electrode file for each subject-key combo")
+    raise Exception(
+        "Need a significant electrode file for each subject-key combo"
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -261,7 +267,9 @@ if len(args.lags_show) < len(
 ):  # if we want to plot part of the lags and not all lags
     print("Trimming Data")
     chosen_lag_idx = [
-        idx for idx, element in enumerate(args.lags_plot) if element in args.lags_show
+        idx
+        for idx, element in enumerate(args.lags_plot)
+        if element in args.lags_show
     ]
     df = df.loc[:, chosen_lag_idx]  # chose from lags to show for the plot
     assert len(x_vals_show) == len(
@@ -269,7 +277,6 @@ if len(args.lags_show) < len(
     ), "args.lags_show length must be the same size as trimmed df column number"
 
 
-# breakpoint()
 # df["max"] = df.max(axis=1)
 # grouped = df["max"].groupby(level=[1])
 # df["sig"] = grouped.transform(lambda x: max(x) >= 0.15)
@@ -284,6 +291,7 @@ if len(args.lags_show) < len(
 #     df = df[df.max_diff > 0]
 
 # df = df.drop(["sig", "max", "max_diff"], axis=1, errors="ignore")
+
 # # df = df[df.max(axis=1) >= 0.08]
 # df = df[df[160] <= 0.04]
 # df = df[df[0] <= 0.04]
@@ -338,9 +346,9 @@ def plot_average(pdf):
         vals = subdf.mean(axis=0)
         err = subdf.sem(axis=0)
         label = "-".join(mode)
-        # ax.fill_between(
-        #     x_vals_show, vals - err, vals + err, alpha=0.2, color=cmap[mode]
-        # )
+        ax.fill_between(
+            x_vals_show, vals - err, vals + err, alpha=0.2, color=cmap[mode]
+        )
         ax.plot(
             x_vals_show,
             vals,

@@ -27,9 +27,7 @@ formats = [
 
 formats = [
     f"results/tfs/stock-1024-24/kw-tfs-full-{sub}-gpt2-xl-lag10k-25-all-shift-emb/*/",
-    f"results/tfs/20230119-whisper-for-grant/kw-tfs-full-{sub}-whisper-tiny.en-Tall-lag10k-25-all-mwf0-l2/*/",
-    f"results/tfs/20230121-whisper-encoder/kw-tfs-full-en-{sub}-whisper-tiny.en-Tall-lag10k-25-all-mwf0-l4/*/",
-    f"results/tfs/20230120-whisper-decoder/kw-tfs-full-de-{sub}-whisper-tiny.en-Tall-lag10k-25-all-mwf0-l2/*/",
+    f"results/tfs/20230131-whisper-encoder-onset/kw-tfs-full-en-onset-{sub}-whisper-tiny.en-l4-wn2-6/*/",
 ]
 
 comp_sig_file = f"data/tfs-sig-file-{sub}-sig-1.0-comp.csv"
@@ -182,7 +180,7 @@ prod_sig_elecs = pd.read_csv(prod_sig_file)["electrode"].tolist()
 
 
 ################################ GET max correlation #################################
-embs = ["gptn", "whisper_full", "whisper_en", "whisper_de"]
+embs = ["gptn", "whisper_en"]
 
 emb_key = [emb + "_" + key for emb in embs for key in keys]
 for col in emb_key:
@@ -228,19 +226,20 @@ for format in formats:
         df.loc[row, col_name2] = get_max(comp_name, format)
 
 for col in emb_key:
-    output_filename = f"results/cor_tfs-20220123/{sub}_{corr}_{col}.txt"
-    output_filename2 = f"results/cor_tfs-20220123/tfs_{corr}_{col}.txt"
-    if "_comp" in col:
-        df_output = df.loc[
-            df.comp_sig == 1, [1, 2, 3, 4, col]
-        ]  # choose only sig electrodes
-    elif "_prod" in col:
-        df_output = df.loc[
-            df.prod_sig == 1, [1, 2, 3, 4, col]
-        ]  # choose only sig electrodes
+    output_filename = f"results/cor_tfs-20220202/{sub}_{corr}_{col}.txt"
+    output_filename2 = f"results/cor_tfs-20220202/tfs_{corr}_{col}.txt"
     elecs_sig = False
     if not elecs_sig:
         df_output = df.loc[:, [1, 2, 3, 4, col]]
+    else:
+        if "_comp" in col:
+            df_output = df.loc[
+                df.comp_sig == 1, [1, 2, 3, 4, col]
+            ]  # choose only sig electrodes
+        elif "_prod" in col:
+            df_output = df.loc[
+                df.prod_sig == 1, [1, 2, 3, 4, col]
+            ]  # choose only sig electrodes
     with open(output_filename, "w") as outfile:
         df_output.to_string(outfile)
     with open(output_filename2, "a") as outfile:
