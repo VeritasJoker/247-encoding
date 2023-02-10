@@ -13,9 +13,9 @@ PRJCT_ID := tfs
 
 ############## tfs electrode ids ##############
 # 625 Electrode IDs
-SID := 625
-E_LIST := $(shell seq 1 105)
-BC := 
+# SID := 625
+# E_LIST := $(shell seq 1 105)
+# BC := 
 
 # 676 Electrode IDs
 # SID := 676
@@ -109,7 +109,7 @@ ALIGN_WITH := $(EMB)
 
 # Choose layer of embeddings to use
 # {1 for glove, 48 for gpt2, 16 for bbot, 24 for bert-lg}
-LAYER_IDX := 4
+LAYER_IDX := 0 1 2 3 4
 
 # Choose whether to PCA (0 or for no pca)
 PCA_TO := 50
@@ -146,14 +146,14 @@ TT := mean
 
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
+CMD := python
 CMD := echo
 CMD := sbatch submit1.sh
-CMD := python
 # {echo | python | sbatch submit1.sh}
 
 
 # Window size
-WN := 1
+WN := 1 2 3 4 5 6
 
 ############## Datum Modifications ##############
 
