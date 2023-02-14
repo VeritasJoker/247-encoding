@@ -137,16 +137,12 @@ def get_cmap_smap(args):
             for label, style in zip(unique_labels, styles):
                 cmap[(label, key)] = color
                 smap[(label, key)] = style
-    elif (
-        args.lc_by == args.ls_by == "labels"
-    ):  # both line color and style by labels
+    elif args.lc_by == args.ls_by == "labels":  # both line color and style by labels
         for label, color, style in zip(unique_labels, colors, styles):
             for key in unique_keys:
                 cmap[(label, key)] = color
                 smap[(label, key)] = style
-    elif (
-        args.lc_by == args.ls_by == "keys"
-    ):  # both line color and style by keys
+    elif args.lc_by == args.ls_by == "keys":  # both line color and style by keys
         for key, color, style in zip(unique_keys, colors, styles):
             for label in unique_labels:
                 cmap[(label, key)] = color
@@ -194,9 +190,7 @@ elif len(args.sig_elec_file) == len(args.sid) * len(args.keys):
             multiple_sid = True
         huge_sig_file = pd.concat([huge_sig_file, sig_file])
 else:
-    raise Exception(
-        "Need a significant electrode file for each subject-key combo"
-    )
+    raise Exception("Need a significant electrode file for each subject-key combo")
 
 
 # -----------------------------------------------------------------------------
@@ -267,9 +261,7 @@ if len(args.lags_show) < len(
 ):  # if we want to plot part of the lags and not all lags
     print("Trimming Data")
     chosen_lag_idx = [
-        idx
-        for idx, element in enumerate(args.lags_plot)
-        if element in args.lags_show
+        idx for idx, element in enumerate(args.lags_plot) if element in args.lags_show
     ]
     df = df.loc[:, chosen_lag_idx]  # chose from lags to show for the plot
     assert len(x_vals_show) == len(
@@ -373,7 +365,7 @@ def plot_average(pdf):
     return pdf
 
 
-def plot_average_split_by_key(pdf, split_dir):
+def plot_average_split_by_key(pdf, split_dir, sd=True):
     if split_dir == "horizontal":
         print("Plotting Average split horizontally by keys")
         fig, axes = plt.subplots(1, len(unique_keys), figsize=fig_size)
@@ -385,9 +377,10 @@ def plot_average_split_by_key(pdf, split_dir):
             vals = subsubdf.mean(axis=0)
             err = subsubdf.sem(axis=0)
             key = (label, mode)
-            ax.fill_between(
-                x_vals_show, vals - err, vals + err, alpha=0.2, color=cmap[key]
-            )
+            if sd:
+                ax.fill_between(
+                    x_vals_show, vals - err, vals + err, alpha=0.2, color=cmap[key]
+                )
             # vals = (vals - vals.min()) / (vals.max() - vals.min())  # normalize
             ax.plot(
                 x_vals_show,
@@ -607,6 +600,7 @@ vmax, vmin = df.max().max(), df.min().min()
 if args.split:
     if args.split_by == "keys":
         pdf = plot_average_split_by_key(pdf, args.split)
+        pdf = plot_average_split_by_key(pdf, args.split, False)
         pdf = plot_electrodes_split_by_key(pdf, args.split)
     elif args.split_by == "labels":
         pdf = plot_average_split_by_label(pdf, args.split)
