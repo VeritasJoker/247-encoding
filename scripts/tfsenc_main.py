@@ -136,7 +136,11 @@ def single_electrode_encoding(electrode, args, datum, stitch_index):
         fold_cat_prod = []
         fold_cat_comp = get_kfolds(comp_X, args.fold_num)
     elif (
-        "single-conv" in args.datum_mod or args.conversation_id or args.sid == 798
+        "single-conv" in args.datum_mod
+        or args.conversation_id
+        or args.sid == 798
+        or args.sid == 7985
+        or args.sid == 7986
     ):  # 1 conv
         fold_cat_prod = get_kfolds(prod_X, args.fold_num)
         fold_cat_comp = get_kfolds(comp_X, args.fold_num)

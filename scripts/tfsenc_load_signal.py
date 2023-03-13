@@ -83,7 +83,9 @@ def load_electrode_data(args, sid, elec_id, stitch, z_score=False):
         if args.sid == 7170:
             process_flag = "preprocessed_v2"  # second version of 7170
         if args.sid == 798:
-            process_flag = 'preprocessed_allElec'
+            process_flag = "preprocessed_allElec"
+        if args.sid == 7985 or args.sid == 7986:  # HACK will delete when done
+            process_flag = "preprocessed_allElec"
     elif args.project_id == "podcast":
         DATA_DIR = "/projects/HASSON/247/data/podcast-data"
         process_flag = "preprocessed_all"

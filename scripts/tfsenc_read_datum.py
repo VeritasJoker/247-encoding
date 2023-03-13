@@ -203,7 +203,6 @@ def mod_datum_by_preds(args, datum, emb_type):
 
         second_base_df = load_datum(second_base_df_path)
         second_emb_df = load_datum(second_emb_df_path)
-
         second_datum = pd.merge(
             second_base_df, second_emb_df, left_index=True, right_index=True
         )
@@ -583,9 +582,11 @@ def read_datum(args, stitch):
     """
     emb_df = load_datum(args.emb_df_path)
     base_df = load_datum(args.base_df_path)
+    
     if "whisper" in args.emb_type:  ## HACK
         base_df = base_df.dropna(subset=["onset", "offset"])
         assert len(base_df) == len(emb_df)
+    
     if len(emb_df) != len(base_df):
         df = pd.merge(
             base_df, emb_df, left_index=True, right_index=True
